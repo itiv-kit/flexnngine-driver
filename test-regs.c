@@ -7,7 +7,7 @@
 #define DEFAULT_DEVICE "/dev/uio4"
 #define FIRST_TEST_REG 2 // exclude control/status regs
 #define NUM_TEST_REGS 4
-#define TEST_PATTERN(i) (0xDEADBE00U & i)
+#define TEST_PATTERN(i) (0xDEADBE00U | i)
 
 int main(int argc, char** argv) {
     char device_name[256] = DEFAULT_DEVICE;
