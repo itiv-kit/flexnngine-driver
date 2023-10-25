@@ -9,7 +9,7 @@
 #define RECACC_MAGIC "ACC"
 
 #define RECACC_BYTE_OFFSET(idx) (idx*4)
-#define RECACC_REG_ADDR(idx)    (RECACC_MEM_OFFSET_REGS+REGACC_BYTE_OFFSET(idx))
+#define RECACC_REG_ADDR(idx)    (RECACC_MEM_OFFSET_REGS+RECACC_BYTE_OFFSET(idx))
 
 #define RECACC_REG_IDX_CONTROL           0
 #define RECACC_REG_IDX_STATUS            1
