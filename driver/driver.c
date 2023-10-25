@@ -81,6 +81,7 @@ int recacc_config_read(const recacc_device* dev, recacc_config* cfg) {
     cfg->c0w0            = recacc_reg_read(dev, RECACC_REG_IDX_CONV_C0W0);
     cfg->c0w0_last_c1    = recacc_reg_read(dev, RECACC_REG_IDX_CONV_C0W0_LAST_C1);
     cfg->magic           = recacc_reg_read(dev, RECACC_REG_IDX_MAGIC);
+    return 0;
 }
 
 int recacc_config_write(const recacc_device* dev, const recacc_config* cfg) {
@@ -102,17 +103,17 @@ int recacc_config_write(const recacc_device* dev, const recacc_config* cfg) {
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_C0W0, cfg->c0w0);
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_C0W0_LAST_C1, cfg->c0w0_last_c1);
     // RECACC_REG_IDX_MAGIC can't be written
+    return 0;
 }
 
 uint32_t recacc_reg_read(const recacc_device* dev, int regidx) {
-    uint32_t value = 0;
-    uint32_t *ptr = (uint32_t*)dev->mem;
-    return ptr[RECACC_BYTE_OFFSET(regidx)];
+    uint32_t *ptr = (uint32_t*)(dev->mem + RECACC_BYTE_OFFSET(regidx));
+    return *ptr;
 }
 
 void recacc_reg_write(const recacc_device* dev, int regidx, uint32_t value) {
-    uint32_t *ptr = (uint32_t*)dev->mem;
-    ptr[RECACC_BYTE_OFFSET(regidx)] = value;
+    uint32_t *ptr = (uint32_t*)(dev->mem + RECACC_BYTE_OFFSET(regidx));
+    *ptr = value;
 }
 
 recacc_status recacc_get_status(const recacc_device* dev) {

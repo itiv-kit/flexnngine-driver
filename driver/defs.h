@@ -4,7 +4,7 @@
 #define RECACC_MEM_OFFSET_WGHT 0x2000
 #define RECACC_MEM_OFFSET_PSUM 0x4000
 #define RECACC_MEM_OFFSET_REGS 0x6000
-#define RECACC_MEM_MAP_SIZE    0x10000
+#define RECACC_MEM_MAP_SIZE    0x8000 // covers all mapped areas
 
 #define RECACC_MAGIC "ACC"
 
