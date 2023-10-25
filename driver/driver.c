@@ -12,7 +12,7 @@
 
 int recacc_open(recacc_device* dev, const char* uio_name) {
     dev->fd = open(uio_name, O_RDWR);
-    if (dev->fd == 0) {
+    if (dev->fd == -1) {
         printf("Failed to open /dev/uio4: %s\n", strerror(errno));
         return errno;
     }
