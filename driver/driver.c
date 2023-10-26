@@ -75,7 +75,7 @@ int recacc_config_read(const recacc_device* dev, recacc_config* cfg) {
     cfg->h2              = recacc_reg_read(dev, RECACC_REG_IDX_CONV_H2);
     cfg->m0              = recacc_reg_read(dev, RECACC_REG_IDX_CONV_M0);
     cfg->m0_last_m1      = recacc_reg_read(dev, RECACC_REG_IDX_CONV_M0_LAST_M1);
-    cfg->row_last_h2     = recacc_reg_read(dev, RECACC_REG_IDX_CONV_ROW_LAST_H2);
+    cfg->rows_last_h2    = recacc_reg_read(dev, RECACC_REG_IDX_CONV_ROWS_LAST_H2);
     cfg->c0              = recacc_reg_read(dev, RECACC_REG_IDX_CONV_C0);
     cfg->c0_last_c1      = recacc_reg_read(dev, RECACC_REG_IDX_CONV_C0_LAST_C1);
     cfg->c0w0            = recacc_reg_read(dev, RECACC_REG_IDX_CONV_C0W0);
@@ -97,7 +97,7 @@ int recacc_config_write(const recacc_device* dev, const recacc_config* cfg) {
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_H2, cfg->h2);
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_M0, cfg->m0);
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_M0_LAST_M1, cfg->m0_last_m1);
-    recacc_reg_write(dev, RECACC_REG_IDX_CONV_ROW_LAST_H2, cfg->row_last_h2);
+    recacc_reg_write(dev, RECACC_REG_IDX_CONV_ROWS_LAST_H2, cfg->rows_last_h2);
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_C0, cfg->c0);
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_C0_LAST_C1, cfg->c0_last_c1);
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_C0W0, cfg->c0w0);
@@ -130,4 +130,37 @@ void recacc_control_start(const recacc_device* dev) {
 
 void recacc_control_reset(const recacc_device* dev) {
     recacc_reg_write(dev, RECACC_REG_IDX_CONTROL, (1 << RECACC_BIT_IDX_CONTROL_RESET));
+}
+
+void recacc_get_hwinfo(const recacc_device* dev, recacc_hwinfo* hwinfo) {
+    (void)dev;
+    hwinfo->array_size_x = 10;
+    hwinfo->array_size_y = 7;
+    hwinfo->line_length_iact = 64;
+    hwinfo->line_length_wght = 64;
+    hwinfo->line_length_psum = 128;
+}
+
+void* recacc_get_buffer(const recacc_device* dev, enum buffer_type type) {
+    switch (type) {
+        case iact:
+            return dev->mem + RECACC_MEM_OFFSET_IACT;
+        case wght:
+            return dev->mem + RECACC_MEM_OFFSET_WGHT;
+        case psum:
+            return dev->mem + RECACC_MEM_OFFSET_PSUM;
+        default:
+            return 0;
+    }
+}
+
+bool recacc_poll(const recacc_device* dev) {
+    recacc_status status = recacc_get_status(dev);
+    return status.ready || status.done;
+}
+
+void recacc_wait(const recacc_device* dev) {
+    // TODO: implement with interrupts instead of polling
+    while (recacc_poll(dev))
+        usleep(100000);
 }
