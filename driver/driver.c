@@ -49,7 +49,7 @@ int recacc_close(recacc_device* dev) {
     return ret;
 }
 
-int recacc_verify(recacc_device* dev, bool print_info) {
+bool recacc_verify(recacc_device* dev, bool print_info) {
     uint32_t magic_reg = recacc_reg_read(dev, RECACC_REG_IDX_MAGIC);
     char magic_str[4] = {
         magic_reg >> 24 & 0xFF,
@@ -57,7 +57,7 @@ int recacc_verify(recacc_device* dev, bool print_info) {
         magic_reg >>  8 & 0xFF,
         0
     };
-    dev->hw_revision = ((uint8_t*)&magic_reg)[3];
+    dev->hw_revision = magic_reg & 0xFF;
 
     bool okay = strcmp(magic_str, RECACC_MAGIC) == 0;
     if (print_info) {
