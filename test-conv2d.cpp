@@ -218,8 +218,7 @@ int main(int argc, char** argv) {
     if (ret)
         return ret;
 
-    ret = recacc_verify(&dev, true);
-    if (ret) {
+    if (!recacc_verify(&dev, true)) {
         recacc_close(&dev);
         return ret;
     }

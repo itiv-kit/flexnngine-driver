@@ -21,8 +21,7 @@ int main(int argc, char** argv) {
     if (ret)
         return ret;
 
-    ret = recacc_verify(&dev, true);
-    if (ret)
+    if (!recacc_verify(&dev, true))
         goto end;
 
     printf("Status register: 0x%08x\n", recacc_reg_read(&dev, RECACC_REG_IDX_STATUS));

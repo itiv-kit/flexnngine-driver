@@ -62,8 +62,9 @@ int recacc_open(recacc_device* dev, const char* uio_name);
 int recacc_close(recacc_device* dev);
 
 // verify the magic register and set the device version
+// returns true if verification succeeds, false otherwise
 // if print_info is true, print an info string to stdout
-int recacc_verify(recacc_device* dev, bool print_info);
+bool recacc_verify(recacc_device* dev, bool print_info);
 
 // read the current set of configuration registers from the accelerator
 int recacc_config_read(const recacc_device* dev, recacc_config* cfg);
