@@ -223,6 +223,8 @@ int main(int argc, char** argv) {
         return ret;
     }
 
+    recacc_reset(&dev);
+
     recacc_status status = recacc_get_status(&dev);
     if (!status.ready) {
         cout << "Accelerator is not ready, status register: "

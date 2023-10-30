@@ -66,6 +66,9 @@ int recacc_close(recacc_device* dev);
 // if print_info is true, print an info string to stdout
 bool recacc_verify(recacc_device* dev, bool print_info);
 
+// resets the accelerator through the control register
+bool recacc_reset(recacc_device* dev);
+
 // read the current set of configuration registers from the accelerator
 int recacc_config_read(const recacc_device* dev, recacc_config* cfg);
 

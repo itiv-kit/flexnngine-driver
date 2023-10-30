@@ -69,6 +69,14 @@ bool recacc_verify(recacc_device* dev, bool print_info) {
     return okay;
 }
 
+// TODO: currently, the RESET bit is directly connected to rstn without inversion,
+// thus first write 0 to reset then 1 to drive out of reset
+bool recacc_reset(recacc_device* dev) {
+    recacc_reg_write(dev, RECACC_REG_IDX_CONTROL, 0);
+    usleep(10000);
+    recacc_reg_write(dev, RECACC_REG_IDX_CONTROL, (1 << RECACC_BIT_IDX_CONTROL_RESET));
+}
+
 int recacc_config_read(const recacc_device* dev, recacc_config* cfg) {
     cfg->iact_dimension  = recacc_reg_read(dev, RECACC_REG_IDX_IMAGE_Y); // identical to RECACC_REG_IDX_IMAGE_X
     cfg->wght_dimension  = recacc_reg_read(dev, RECACC_REG_IDX_KERNEL_SIZE);
