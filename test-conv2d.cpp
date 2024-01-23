@@ -70,9 +70,9 @@ public:
         // calculate and set accelerator parameters
         recacc_get_hwinfo(dev, &hwinfo);
         assert(iact_w == iact_h);
-        int kernel_size = iact_w;
+        int image_size = iact_w;
         assert(wght_w == wght_h);
-        int image_size = wght_w;
+        int kernel_size = wght_w;
 
         cout << "Accelerator configuration:" << endl;
         cout << "array size: " << hwinfo.array_size_y
@@ -82,6 +82,10 @@ public:
             << " psum " << hwinfo.line_length_psum << endl;
 
         recacc_config cfg;
+        cfg.iact_dimension = image_size;
+        cfg.wght_dimension = kernel_size;
+        cfg.input_channels = input_channels;
+        cfg.output_channels = output_channels;
         int line_length_wght_usable = hwinfo.line_length_wght - 1;
 
         // m0 is how many kernels are mapped at once (vertically)
@@ -218,6 +222,7 @@ private:
     const unsigned wght_w = 3;
     const unsigned wght_h = 3;
     const unsigned input_channels = 12;
+    const unsigned output_channels = 3;
 };
 
 int main(int argc, char** argv) {
