@@ -45,7 +45,7 @@ public:
     }
 
     void prepare_data() {
-        cout << "generating random test data" << endl;
+        cout << "generating " << bytes_to_test << " bytes of random test data for each buffer" << endl;
 
         buf_iact = new int8_t[bytes_to_test];
         generate_random_data_int8(buf_iact, bytes_to_test);
@@ -102,11 +102,6 @@ public:
 private:
     mt19937 mtrnd;
     recacc_device* dev;
-    recacc_hwinfo hwinfo;
-
-    int bytes_to_test;
-    int num_wght_elements;
-    int num_result_elements;
 
     int8_t* buf_iact;
     int8_t* buf_wght;
