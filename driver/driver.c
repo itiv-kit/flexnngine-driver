@@ -1,6 +1,8 @@
 #include "driver.h"
 #include "defs.h"
 
+#define __USE_MISC
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -71,7 +73,7 @@ bool recacc_verify(recacc_device* dev, bool print_info) {
 
 // TODO: currently, the RESET bit is directly connected to rstn without inversion,
 // thus first write 0 to reset then 1 to drive out of reset
-bool recacc_reset(recacc_device* dev) {
+void recacc_reset(recacc_device* dev) {
     recacc_reg_write(dev, RECACC_REG_IDX_CONTROL, 0);
     usleep(10000);
     recacc_reg_write(dev, RECACC_REG_IDX_CONTROL, (1 << RECACC_BIT_IDX_CONTROL_RESET));
