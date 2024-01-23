@@ -52,10 +52,10 @@ public:
         buf_wght = new int8_t[num_wght_elements];
         generate_random_data_int8(buf_wght, wght_w * wght_h);
 
-        const int output_size = iact_w * iact_h - wght_w * wght_h + 1; // no padding
+        const int output_size = (iact_w - wght_w + 1) * (iact_h - wght_h + 1); // no padding
         num_result_elements = output_size * output_size;
-        buf_result_cpu = new int16_t[num_iact_elements];
-        buf_result_acc = new int16_t[num_iact_elements];
+        buf_result_cpu = new int16_t[num_result_elements];
+        buf_result_acc = new int16_t[num_result_elements];
     }
 
     // calculate convolution on cpu as reference
@@ -161,10 +161,11 @@ public:
             throw runtime_error("BUG: mismatch of calculated accelerator parameters");
         }
 
+        recacc_config_write(dev, &cfg);
+
+        // clear result buffers
         memset(buf_result_acc, 0, num_result_elements * sizeof(buf_result_acc[0]));
         memset(buf_result_cpu, 0, num_result_elements * sizeof(buf_result_cpu[0]));
-
-        recacc_config_write(dev, &cfg);
 
         // copy accelerator input data
         void* iact_addr = recacc_get_buffer(dev, buffer_type::iact);
@@ -173,6 +174,7 @@ public:
         void* wght_addr = recacc_get_buffer(dev, buffer_type::wght);
         memcpy(wght_addr, buf_wght, num_wght_elements * sizeof(buf_wght[0]));
 
+        // also clear the result buffer to ease debugging
         void* psum_addr = recacc_get_buffer(dev, buffer_type::psum);
         memcpy(psum_addr, buf_result_acc, num_result_elements * sizeof(buf_result_acc[0]));
     }
