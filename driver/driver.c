@@ -148,8 +148,8 @@ void recacc_control_reset(const recacc_device* dev) {
 
 void recacc_get_hwinfo(const recacc_device* dev, recacc_hwinfo* hwinfo) {
     (void)dev;
-    hwinfo->array_size_x = 10;
-    hwinfo->array_size_y = 7;
+    hwinfo->array_size_x = 7;
+    hwinfo->array_size_y = 10;
     hwinfo->line_length_iact = 64;
     hwinfo->line_length_wght = 64;
     hwinfo->line_length_psum = 128;

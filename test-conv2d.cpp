@@ -74,11 +74,22 @@ public:
         assert(wght_w == wght_h);
         int image_size = wght_w;
 
+        cout << "Accelerator configuration:" << endl;
+        cout << "array size: " << hwinfo.array_size_y
+            << "x" << hwinfo.array_size_x << endl;
+        cout << "pe buffers: iact " << hwinfo.line_length_iact
+            << " wght " << hwinfo.line_length_wght
+            << " psum " << hwinfo.line_length_psum << endl;
+
         recacc_config cfg;
         int line_length_wght_usable = hwinfo.line_length_wght - 1;
 
+        // m0 is how many kernels are mapped at once (vertically)
         cfg.m0 = floor((float)hwinfo.array_size_y / kernel_size);
-        int h1 = hwinfo.array_size_x;
+        // h1 is how many image rows are processed at once
+        // for RS dataflow, each accelerator column processes one input image row
+        // value is not needed, so maybe remove it some day
+        // int h1 = hwinfo.array_size_x;
 
         cfg.w1 = image_size - kernel_size + 1;
         cfg.m0_last_m1 = 1; // not used yet
@@ -86,7 +97,8 @@ public:
         int size_rows = hwinfo.array_size_x + hwinfo.array_size_y - 1;
         // TODO: check case for M0 = 0. IMHO the else path is incorrect, as H2 is the number of iterations for mapping
         // each set of rows (accelerator.size_x rows) to the pe array.
-        if (1) // cfg.m0 == 0:
+        // h2 is how many iterations with one set of m0 kernels are required to process all image rows
+        if (cfg.m0 == 0)
             cfg.h2 = ceil((float)(image_size - kernel_size + 1) / hwinfo.array_size_x);
         else
             cfg.h2 = ceil((float)image_size / hwinfo.array_size_x);
