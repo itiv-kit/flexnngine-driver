@@ -35,6 +35,9 @@ typedef struct {
     uint32_t line_length_iact;
     uint32_t line_length_wght;
     uint32_t line_length_psum;
+    uint32_t spad_size_iact;
+    uint32_t spad_size_wght;
+    uint32_t spad_size_psum;
 } recacc_hwinfo;
 
 typedef struct {

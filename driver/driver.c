@@ -153,6 +153,9 @@ void recacc_get_hwinfo(const recacc_device* dev, recacc_hwinfo* hwinfo) {
     hwinfo->line_length_iact = 64;
     hwinfo->line_length_wght = 64;
     hwinfo->line_length_psum = 128;
+    hwinfo->spad_size_iact = RECACC_MEM_SIZE_IACT;
+    hwinfo->spad_size_wght = RECACC_MEM_SIZE_WGHT;
+    hwinfo->spad_size_psum = RECACC_MEM_SIZE_PSUM;
 }
 
 void* recacc_get_buffer(const recacc_device* dev, enum buffer_type type) {
