@@ -19,9 +19,25 @@ extern "C" {
 }
 
 #define DEFAULT_DEVICE "/dev/uio4"
-const uint16_t bytes_to_test = 0x2000; // per buffer
+
+static recacc_hwinfo hwinfo;
 
 using namespace std;
+
+void print_buffer(void* data, size_t len) {
+    uint8_t* ints = (uint8_t*)data;
+    for (size_t i=0; i<len; i+=1) {
+        if (i%8 == 0)
+            printf("0x%04lx: ", i);
+        printf("%02x", ints[i]);
+        if (i%8 != 7)
+            putchar(' ');
+        else
+            putchar('\n');
+    }
+    if (len%8)
+        putchar('\n');
+}
 
 class Conv2DTest {
 public:
@@ -45,16 +61,16 @@ public:
     }
 
     void prepare_data() {
-        cout << "generating " << bytes_to_test << " bytes of random test data for each buffer" << endl;
+        cout << "generating random test data for each buffer" << endl;
 
-        buf_iact = new int8_t[bytes_to_test];
-        generate_random_data_int8(buf_iact, bytes_to_test);
+        buf_iact = new int8_t[hwinfo.spad_size_iact];
+        generate_random_data_int8(buf_iact, hwinfo.spad_size_iact);
 
-        buf_wght = new int8_t[bytes_to_test];
-        generate_random_data_int8(buf_wght, bytes_to_test);
+        buf_wght = new int8_t[hwinfo.spad_size_wght];
+        generate_random_data_int8(buf_wght, hwinfo.spad_size_wght);
 
-        buf_psum = new int8_t[bytes_to_test];
-        generate_random_data_int8(buf_psum, bytes_to_test);
+        buf_psum = new int8_t[hwinfo.spad_size_psum];
+        generate_random_data_int8(buf_psum, hwinfo.spad_size_psum);
     }
 
     void test_buffers() {
@@ -64,37 +80,44 @@ public:
 
         // copy random data to buffers
         void* iact_addr = recacc_get_buffer(dev, buffer_type::iact);
-        cout << "copy data to iact buffer at " << RECACC_MEM_OFFSET_IACT << "(mapped at " << iact_addr << ")" << endl;
-        memcpy(iact_addr, buf_iact, bytes_to_test);
+        cout << "copy " << hwinfo.spad_size_iact << " bytes to iact buffer at " << RECACC_MEM_OFFSET_IACT << " (mapped at " << iact_addr << ")" << endl;
+        memcpy(iact_addr, buf_iact, hwinfo.spad_size_iact);
 
         void* wght_addr = recacc_get_buffer(dev, buffer_type::wght);
-        cout << "copy data to wght buffer at " << RECACC_MEM_OFFSET_WGHT << "(mapped at " << wght_addr << ")" << endl;
-        memcpy(wght_addr, buf_wght, bytes_to_test);
+        cout << "copy " << hwinfo.spad_size_wght << " bytes to wght buffer at " << RECACC_MEM_OFFSET_WGHT << " (mapped at " << wght_addr << ")" << endl;
+        memcpy(wght_addr, buf_wght, hwinfo.spad_size_wght);
 
-        // also clear the result buffer to ease debugging
         void* psum_addr = recacc_get_buffer(dev, buffer_type::psum);
-        cout << "copy data to psum buffer at " << RECACC_MEM_OFFSET_PSUM << "(mapped at " << psum_addr << ")" << endl;
-        memcpy(psum_addr, buf_psum, bytes_to_test);
+        cout << "copy " << hwinfo.spad_size_psum << " bytes to psum buffer at " << RECACC_MEM_OFFSET_PSUM << " (mapped at " << psum_addr << ")" << endl;
+        memcpy(psum_addr, buf_psum, hwinfo.spad_size_psum);
 
         sleep(1);
 
         // now read data back and compare
-        verify("iact", iact_addr, buf_iact);
-        verify("wght", wght_addr, buf_wght);
-        verify("psum", psum_addr, buf_psum);
+        verify("iact", iact_addr, buf_iact, hwinfo.spad_size_iact);
+        verify("wght", wght_addr, buf_wght, hwinfo.spad_size_wght);
+        verify("psum", psum_addr, buf_psum, hwinfo.spad_size_psum);
     }
 
-    void verify(const string& name, void* src, int8_t* reference) {
-        int8_t* buf_test = new int8_t[bytes_to_test];
+    void verify(const string& name, void* src, int8_t* reference, size_t size) {
+        int8_t* buf_test = new int8_t[size];
 
         cout << "reading back " << name << " buffer" << endl;
-        memcpy(buf_test, src, bytes_to_test);
+        memcpy(buf_test, src, size);
 
-        int ret = memcmp(buf_test, reference, bytes_to_test);
-        if (ret != 0)
-            cout << "ERROR: " << name << " buffer differs at " << ret << "(got " << buf_test[abs(ret)] << " expected " << reference[abs(ret)] << ")" << endl;
-        else
+        int ret = memcmp(buf_test, reference, size);
+        if (ret != 0) {
+            cout << "ERROR: " << name << " buffer differs at " << ret
+                << " (got " << static_cast<int>(buf_test[abs(ret)])
+                << " expected " << static_cast<int>(reference[abs(ret)]) << ")" << endl;
+
+            cout << "Wrote:" << endl;
+            print_buffer(reference, size);
+            cout << "Got:" << endl;
+            print_buffer(buf_test, size);
+        } else {
             cout << "SUCCESS: " << name << " buffer test ok" << endl;
+        }
 
         delete[] buf_test;
     }
@@ -132,6 +155,8 @@ int main(int argc, char** argv) {
             << endl;
         return recacc_close(&dev);
     }
+
+    recacc_get_hwinfo(&dev, &hwinfo);
 
     Conv2DTest c2d(&dev);
     c2d.prepare_data();
