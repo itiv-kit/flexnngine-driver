@@ -53,7 +53,7 @@ public:
         generate_random_data_int8(buf_wght, wght_w * wght_h);
 
         const int output_size = (iact_w - wght_w + 1) * (iact_h - wght_h + 1); // no padding
-        num_result_elements = output_size * output_size;
+        num_result_elements = output_size * output_channels;
         buf_result_cpu = new int16_t[num_result_elements];
         buf_result_acc = new int16_t[num_result_elements];
 
