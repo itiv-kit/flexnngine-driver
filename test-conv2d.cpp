@@ -176,6 +176,8 @@ public:
         memset(buf_result_acc, 0, num_result_elements * sizeof(buf_result_acc[0]));
         memset(buf_result_cpu, 0, num_result_elements * sizeof(buf_result_cpu[0]));
 
+        cout << "copying input data to accelerator" << endl;
+
         // copy accelerator input data
         void* iact_addr = recacc_get_buffer(dev, buffer_type::iact);
         memcpy(iact_addr, buf_iact, num_iact_elements * sizeof(buf_iact[0]));
@@ -262,11 +264,23 @@ int main(int argc, char** argv) {
     }
 
     Conv2DTest c2d(&dev);
+
+    cout << "preparing random test data" << endl;
     c2d.prepare_data();
+
+    cout << "calculating accelerator parameters" << endl;
     c2d.prepare_accelerator();
+
+    cout << "launching conv2d on accelerator" << endl;
     c2d.run_accelerator();
+
+    cout << "launching conv2d on cpu" << endl;
     c2d.run_cpu();
+
+    cout << "conv2d done on cpu, waiting for accelerator" << endl;
     c2d.get_accelerator_results();
+
+    cout << "comparing cpu and accelerator results" << endl;
     c2d.verify();
 
     ret = recacc_close(&dev);
