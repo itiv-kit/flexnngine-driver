@@ -73,6 +73,7 @@ bool recacc_verify(recacc_device* dev, bool print_info) {
 
 // TODO: currently, the RESET bit is directly connected to rstn without inversion,
 // thus first write 0 to reset then 1 to drive out of reset
+// fixed in hw, change when new bitstream is finished
 void recacc_reset(recacc_device* dev) {
     recacc_reg_write(dev, RECACC_REG_IDX_CONTROL, 0);
     usleep(10000);
@@ -139,11 +140,15 @@ recacc_status recacc_get_status(const recacc_device* dev) {
 }
 
 void recacc_control_start(const recacc_device* dev) {
-    recacc_reg_write(dev, RECACC_REG_IDX_CONTROL, (1 << RECACC_BIT_IDX_CONTROL_START));
+    uint32_t ctrl = recacc_reg_read(dev, RECACC_REG_IDX_CONTROL);
+    ctrl |= (1 << RECACC_BIT_IDX_CONTROL_START);
+    recacc_reg_write(dev, RECACC_REG_IDX_CONTROL, ctrl);
 }
 
-void recacc_control_reset(const recacc_device* dev) {
-    recacc_reg_write(dev, RECACC_REG_IDX_CONTROL, (1 << RECACC_BIT_IDX_CONTROL_RESET));
+void recacc_control_stop(const recacc_device* dev) {
+    uint32_t ctrl = recacc_reg_read(dev, RECACC_REG_IDX_CONTROL);
+    ctrl &= ~(1 << RECACC_BIT_IDX_CONTROL_START);
+    recacc_reg_write(dev, RECACC_REG_IDX_CONTROL, ctrl);
 }
 
 void recacc_get_hwinfo(const recacc_device* dev, recacc_hwinfo* hwinfo) {
@@ -171,6 +176,7 @@ void* recacc_get_buffer(const recacc_device* dev, enum buffer_type type) {
     }
 }
 
+// returns true if the accelerator is ready or finished
 bool recacc_poll(const recacc_device* dev) {
     recacc_status status = recacc_get_status(dev);
     return status.ready || status.done;
@@ -178,6 +184,6 @@ bool recacc_poll(const recacc_device* dev) {
 
 void recacc_wait(const recacc_device* dev) {
     // TODO: implement with interrupts instead of polling
-    while (recacc_poll(dev))
+    while (!recacc_poll(dev))
         usleep(100000);
 }

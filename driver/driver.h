@@ -102,8 +102,8 @@ recacc_status recacc_get_status(const recacc_device* dev);
 // start the accelerator by writing to the control register
 void recacc_control_start(const recacc_device* dev);
 
-// reset the accelerator by writing to the control register
-void recacc_control_reset(const recacc_device* dev);
+// clear the start bit by writing to the control register
+void recacc_control_stop(const recacc_device* dev);
 
 // retrieve information about the current hardware design (accelerator size etc.)
 // TODO: CURRENTLY STATICALLY IMPLEMENTED, returns fixed values only

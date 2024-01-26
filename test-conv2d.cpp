@@ -20,6 +20,28 @@ extern "C" {
 
 using namespace std;
 
+void print_buffer(void* data, size_t len) {
+    uint8_t* ints = (uint8_t*)data;
+    for (size_t i=0; i<len; i+=1) {
+        if (i%8 == 0)
+            printf("0x%04lx: ", i);
+        printf("%02x", ints[i]);
+        if (i%8 != 7)
+            putchar(' ');
+        else
+            putchar('\n');
+    }
+    if (len%8)
+        putchar('\n');
+}
+
+auto make_multiple_of(auto div, auto value) {
+    auto remainder = value % div;
+    if (remainder > 0)
+        value += div - remainder;
+    return value;
+}
+
 class Conv2DTest {
 public:
     Conv2DTest(recacc_device* accelerator)
@@ -28,7 +50,12 @@ public:
         buf_wght = nullptr;
         buf_result_cpu = nullptr;
         buf_result_acc = nullptr;
+        num_iact_elements = 0;
+        num_wght_elements = 0;
+        num_result_elements = 0;
         this->dev = accelerator;
+
+        recacc_get_hwinfo(dev, &hwinfo);
     }
 
     ~Conv2DTest() {
@@ -44,18 +71,27 @@ public:
     }
 
     void prepare_data() {
-        num_iact_elements = iact_w * iact_h * input_channels;
+        cout << "preparing conv2d data with:" << endl;
+        cout << "  " << iact_w << "x" << iact_h << ", " << input_channels << " ch input activations" << endl;
+        cout << "  " << wght_w << "x" << wght_h << " kernels and " << output_channels << " output channels" << endl;
+
+        num_iact_elements = make_multiple_of(8, iact_w * iact_h * input_channels);
         buf_iact = new int8_t[num_iact_elements];
         generate_random_data_int8(buf_iact, num_iact_elements);
 
-        num_wght_elements = wght_w * wght_h * input_channels;
+        num_wght_elements = make_multiple_of(8, wght_w * wght_h * input_channels);
         buf_wght = new int8_t[num_wght_elements];
         generate_random_data_int8(buf_wght, wght_w * wght_h);
 
         const int output_size = (iact_w - wght_w + 1) * (iact_h - wght_h + 1); // no padding
-        num_result_elements = output_size * output_channels;
+        num_result_elements = make_multiple_of(8, output_size * output_channels);
         buf_result_cpu = new int16_t[num_result_elements];
         buf_result_acc = new int16_t[num_result_elements];
+
+        cout << "using "
+            << num_iact_elements * sizeof(buf_iact[0]) << " bytes iact, "
+            << num_wght_elements * sizeof(buf_wght[0]) << " bytes wght, "
+            << num_result_elements * sizeof(buf_result_acc[0]) << " bytes psum" << endl;
 
         if (num_iact_elements * sizeof(buf_iact[0]) > hwinfo.spad_size_iact)
             throw runtime_error("iact spad memory too small!");
@@ -77,7 +113,6 @@ public:
 
     void prepare_accelerator() {
         // calculate and set accelerator parameters
-        recacc_get_hwinfo(dev, &hwinfo);
         assert(iact_w == iact_h);
         int image_size = iact_w;
         assert(wght_w == wght_h);
@@ -201,6 +236,8 @@ public:
         recacc_wait(dev);
 
         // copy data back
+        void* psum_addr = recacc_get_buffer(dev, buffer_type::psum);
+        memcpy(buf_result_acc, psum_addr, num_result_elements * sizeof(buf_result_acc[0]));
     }
 
     void verify() {
@@ -213,6 +250,13 @@ public:
             cout << incorrect << " values INCORRECT" << endl;
         else
             cout << "CORRECT" << endl;
+
+        if (incorrect > 0) {
+            cout << "CPU result:" << endl;
+            print_buffer(buf_result_cpu, 64);
+            cout << "ACC result:" << endl;
+            print_buffer(buf_result_acc, 64);
+        }
     }
 
 private:
@@ -230,11 +274,11 @@ private:
     int16_t* buf_result_acc;
 
     // static parameters for our test convolution
-    const unsigned iact_w = 64;
-    const unsigned iact_h = 64;
+    const unsigned iact_w = 32;
+    const unsigned iact_h = 32;
     const unsigned wght_w = 3;
     const unsigned wght_h = 3;
-    const unsigned input_channels = 12;
+    const unsigned input_channels = 4;
     const unsigned output_channels = 3;
 };
 

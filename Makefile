@@ -1,5 +1,5 @@
 CFLAGS = -Wall -Wextra -std=c11
-CXXFLAGS = -Wall -Wextra -std=c++11
+CXXFLAGS = -Wall -Wextra -std=c++20
 release: CFLAGS += -s -O3
 release: CXXFLAGS += -s -O3
 debug:   CFLAGS += -g -O1
