@@ -56,6 +56,15 @@ public:
         num_result_elements = output_size * output_size;
         buf_result_cpu = new int16_t[num_result_elements];
         buf_result_acc = new int16_t[num_result_elements];
+
+        if (num_iact_elements * sizeof(buf_iact[0]) > hwinfo.spad_size_iact)
+            throw runtime_error("iact spad memory too small!");
+
+        if (num_wght_elements * sizeof(buf_wght[0]) > hwinfo.spad_size_wght)
+            throw runtime_error("wght spad memory too small!");
+
+        if (num_result_elements * sizeof(buf_result_acc[0]) > hwinfo.spad_size_psum)
+            throw runtime_error("psum spad memory too small!");
     }
 
     // calculate convolution on cpu as reference
