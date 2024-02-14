@@ -79,7 +79,7 @@ public:
         buf_iact = new int8_t[num_iact_elements];
         generate_random_data_int8(buf_iact, num_iact_elements);
 
-        num_wght_elements = make_multiple_of(8, wght_w * wght_h * input_channels);
+        num_wght_elements = make_multiple_of(8, wght_w * wght_h * input_channels * output_channels);
         buf_wght = new int8_t[num_wght_elements];
         generate_random_data_int8(buf_wght, wght_w * wght_h);
 

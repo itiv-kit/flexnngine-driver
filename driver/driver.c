@@ -71,13 +71,10 @@ bool recacc_verify(recacc_device* dev, bool print_info) {
     return okay;
 }
 
-// TODO: currently, the RESET bit is directly connected to rstn without inversion,
-// thus first write 0 to reset then 1 to drive out of reset
-// fixed in hw, change when new bitstream is finished
 void recacc_reset(recacc_device* dev) {
-    recacc_reg_write(dev, RECACC_REG_IDX_CONTROL, 0);
-    usleep(10000);
     recacc_reg_write(dev, RECACC_REG_IDX_CONTROL, (1 << RECACC_BIT_IDX_CONTROL_RESET));
+    usleep(10000);
+    recacc_reg_write(dev, RECACC_REG_IDX_CONTROL, 0);
 }
 
 int recacc_config_read(const recacc_device* dev, recacc_config* cfg) {
