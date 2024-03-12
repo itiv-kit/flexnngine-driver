@@ -7,7 +7,7 @@ debug:   CXXFLAGS += -g -O1
 LDFLAGS =
 
 SRCS = $(wildcard driver/*.c)
-OBJS = $(SRCS:%.c=%.o)
+OBJS = $(filter-out driver/baremetal.o,$(SRCS:%.c=%.o))
 TARGET_SRCS_C = $(wildcard *.c)
 TARGET_SRCS_CXX = $(wildcard *.cpp)
 TARGETS_C = $(TARGET_SRCS_C:%.c=%)

@@ -283,6 +283,7 @@ private:
 };
 
 int main(int argc, char** argv) {
+    #ifdef __linux__
     string device_name(DEFAULT_DEVICE);
     if (argc > 1)
         device_name = string(*argv);
@@ -291,6 +292,10 @@ int main(int argc, char** argv) {
     int ret = recacc_open(&dev, device_name.c_str());
     if (ret)
         return ret;
+    #else
+    recacc_device dev;
+    int ret = recacc_open(&dev, 0x50000000);
+    #endif
 
     if (!recacc_verify(&dev, true)) {
         recacc_close(&dev);
