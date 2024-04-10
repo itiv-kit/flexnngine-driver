@@ -20,6 +20,16 @@ extern "C" {
 
 using namespace std;
 
+// read integers from simulation files
+template<typename T> size_t read_text_data(T* buffer, size_t size, string path) {
+    size_t i = 0;
+    T tmp;
+    ifstream infile(path);
+    while (i < size && infile >> tmp)
+        buffer[i++] = tmp;
+    return i;
+}
+
 void print_buffer(void* data, size_t len) {
     uint8_t* ints = (uint8_t*)data;
     for (size_t i=0; i<len; i+=1) {
@@ -50,6 +60,7 @@ public:
         buf_wght = nullptr;
         buf_result_cpu = nullptr;
         buf_result_acc = nullptr;
+        buf_result_files = nullptr;
         num_iact_elements = 0;
         num_wght_elements = 0;
         num_result_elements = 0;
@@ -63,6 +74,7 @@ public:
         if (buf_wght) delete[] buf_wght;
         if (buf_result_cpu) delete[] buf_result_cpu;
         if (buf_result_acc) delete[] buf_result_acc;
+        if (buf_result_files) delete[] buf_result_files;
     }
 
     void generate_random_data_int8(int8_t* ptr, size_t n) {
@@ -70,23 +82,39 @@ public:
             ptr[i] = (int8_t)(mtrnd() % 256);
     }
 
-    void prepare_data() {
+    void prepare_data(bool data_from_files, string files_path) {
         cout << "preparing conv2d data with:" << endl;
         cout << "  " << iact_w << "x" << iact_h << ", " << input_channels << " ch input activations" << endl;
         cout << "  " << wght_w << "x" << wght_h << " kernels and " << output_channels << " output channels" << endl;
 
         num_iact_elements = make_multiple_of(8, iact_w * iact_h * input_channels);
         buf_iact = new int8_t[num_iact_elements];
-        generate_random_data_int8(buf_iact, num_iact_elements);
+        if (data_from_files) {
+            size_t n = read_text_data<int8_t>(buf_iact, num_iact_elements, files_path + "/_image.txt");
+            if (num_iact_elements != n)
+                cout << "warning: only " << n << " iact words read, " << num_iact_elements << " expected." << endl;
+        } else
+            generate_random_data_int8(buf_iact, num_iact_elements);
 
         num_wght_elements = make_multiple_of(8, wght_w * wght_h * input_channels * output_channels);
         buf_wght = new int8_t[num_wght_elements];
-        generate_random_data_int8(buf_wght, wght_w * wght_h);
+        if (data_from_files) {
+            size_t n = read_text_data<int8_t>(buf_wght, num_wght_elements, files_path + "/_kernel.txt");
+            if (num_wght_elements != n)
+                cout << "warning: only " << n << " wght words read, " << num_wght_elements << " expected." << endl;
+        } else
+            generate_random_data_int8(buf_wght, wght_w * wght_h);
 
         const int output_size = (iact_w - wght_w + 1) * (iact_h - wght_h + 1); // no padding
         num_result_elements = make_multiple_of(8, output_size * output_channels);
         buf_result_cpu = new int16_t[num_result_elements];
         buf_result_acc = new int16_t[num_result_elements];
+        if (data_from_files) {
+            buf_result_files = new int16_t[num_result_elements];
+            size_t n = read_text_data<int16_t>(buf_result_files, num_result_elements, files_path + "/_convolution.txt");
+            if (num_result_elements != n)
+                cout << "warning: only " << n << " result words read, " << num_result_elements << " expected." << endl;
+        }
 
         cout << "using "
             << num_iact_elements * sizeof(buf_iact[0]) << " bytes iact, "
@@ -207,7 +235,7 @@ public:
 
         recacc_config_write(dev, &cfg);
 
-        // clear result buffers
+        // clear software result buffers
         memset(buf_result_acc, 0, num_result_elements * sizeof(buf_result_acc[0]));
         memset(buf_result_cpu, 0, num_result_elements * sizeof(buf_result_cpu[0]));
 
@@ -220,7 +248,7 @@ public:
         void* wght_addr = recacc_get_buffer(dev, buffer_type::wght);
         memcpy(wght_addr, buf_wght, num_wght_elements * sizeof(buf_wght[0]));
 
-        // also clear the result buffer to ease debugging
+        // also clear the hardware result buffer to ease debugging
         void* psum_addr = recacc_get_buffer(dev, buffer_type::psum);
         memcpy(psum_addr, buf_result_acc, num_result_elements * sizeof(buf_result_acc[0]));
     }
@@ -240,12 +268,33 @@ public:
         memcpy(buf_result_acc, psum_addr, num_result_elements * sizeof(buf_result_acc[0]));
     }
 
-    void verify() {
-        cout << "comparing " << num_result_elements << " output values... ";
-        int incorrect = 0;
-        for (int n = 0; n < num_result_elements; n++)
-            if (buf_result_acc[n] != buf_result_cpu[n])
+    int compare_buffers(int16_t* buf_a, int16_t* buf_b, size_t buf_size) {
+        size_t incorrect = 0;
+        for (size_t n = 0; n < buf_size; n++)
+            if (buf_a[n] != buf_b[n])
                 incorrect++;
+        return incorrect;
+    }
+
+    void verify() {
+        if (buf_result_files) {
+            cout << "comparing " << num_result_elements << " cpu values to the file reference... ";
+            size_t incorrect = compare_buffers(buf_result_cpu, buf_result_files, num_result_elements);
+            if (incorrect > 0)
+                cout << incorrect << " values INCORRECT" << endl;
+            else
+                cout << "CORRECT" << endl;
+
+            if (incorrect > 0) {
+                cout << "CPU result:" << endl;
+                print_buffer(buf_result_cpu, 64);
+                cout << "Reference result from file:" << endl;
+                print_buffer(buf_result_files, 64);
+            }
+        }
+
+        cout << "comparing " << num_result_elements << " output values... ";
+        size_t incorrect = compare_buffers(buf_result_acc, buf_result_cpu, num_result_elements);
         if (incorrect > 0)
             cout << incorrect << " values INCORRECT" << endl;
         else
@@ -264,14 +313,15 @@ private:
     recacc_device* dev;
     recacc_hwinfo hwinfo;
 
-    int num_iact_elements;
-    int num_wght_elements;
-    int num_result_elements;
+    size_t num_iact_elements;
+    size_t num_wght_elements;
+    size_t num_result_elements;
 
     int8_t* buf_iact;
     int8_t* buf_wght;
     int16_t* buf_result_cpu;
     int16_t* buf_result_acc;
+    int16_t* buf_result_files;
 
     // static parameters for our test convolution
     const unsigned iact_w = 32;
@@ -285,8 +335,11 @@ private:
 int main(int argc, char** argv) {
     #ifdef __linux__
     string device_name(DEFAULT_DEVICE);
+    string files_path;
     if (argc > 1)
-        device_name = string(*argv);
+        device_name = string(*++argv);
+    if (argc > 1)
+        files_path = string(*++argv);
 
     recacc_device dev;
     int ret = recacc_open(&dev, device_name.c_str());
@@ -315,7 +368,7 @@ int main(int argc, char** argv) {
     Conv2DTest c2d(&dev);
 
     cout << "preparing random test data" << endl;
-    c2d.prepare_data();
+    c2d.prepare_data(files_path.length() > 0, files_path);
 
     cout << "calculating accelerator parameters" << endl;
     c2d.prepare_accelerator();
