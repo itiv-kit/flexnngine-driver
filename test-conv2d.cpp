@@ -9,6 +9,7 @@
 #include <fstream>
 #include <chrono>
 #include <random>
+#include <unistd.h>
 
 #include "lib/conv2d.hpp"
 
@@ -23,7 +24,7 @@ using namespace std;
 // read integers from simulation files
 template<typename T> size_t read_text_data(T* buffer, size_t size, string path) {
     size_t i = 0;
-    T tmp;
+    long int tmp;
     ifstream infile(path);
     while (i < size && infile >> tmp)
         buffer[i++] = tmp;
@@ -65,6 +66,7 @@ public:
         num_wght_elements = 0;
         num_result_elements = 0;
         this->dev = accelerator;
+        dryrun = false;
 
         recacc_get_hwinfo(dev, &hwinfo);
     }
@@ -77,9 +79,9 @@ public:
         if (buf_result_files) delete[] buf_result_files;
     }
 
-    void generate_random_data_int8(int8_t* ptr, size_t n) {
+    template <typename T> void generate_random_data(T* ptr, size_t n) {
         for (auto i = 0u; i < n; i++)
-            ptr[i] = (int8_t)(mtrnd() % 256);
+            ptr[i] = static_cast<T>(mtrnd() % 256);
     }
 
     void prepare_data(bool data_from_files, string files_path) {
@@ -94,16 +96,16 @@ public:
             if (num_iact_elements != n)
                 cout << "warning: only " << n << " iact words read, " << num_iact_elements << " expected." << endl;
         } else
-            generate_random_data_int8(buf_iact, num_iact_elements);
+            generate_random_data<int8_t>(buf_iact, num_iact_elements);
 
         num_wght_elements = make_multiple_of(8, wght_w * wght_h * input_channels * output_channels);
         buf_wght = new int8_t[num_wght_elements];
         if (data_from_files) {
-            size_t n = read_text_data<int8_t>(buf_wght, num_wght_elements, files_path + "/_kernel.txt");
+            size_t n = read_text_data<int8_t>(buf_wght, num_wght_elements, files_path + "/_kernel_stack.txt");
             if (num_wght_elements != n)
                 cout << "warning: only " << n << " wght words read, " << num_wght_elements << " expected." << endl;
         } else
-            generate_random_data_int8(buf_wght, wght_w * wght_h);
+            generate_random_data<int8_t>(buf_wght, wght_w * wght_h);
 
         const int output_size = (iact_w - wght_w + 1) * (iact_h - wght_h + 1); // no padding
         num_result_elements = make_multiple_of(8, output_size * output_channels);
@@ -111,7 +113,7 @@ public:
         buf_result_acc = new int16_t[num_result_elements];
         if (data_from_files) {
             buf_result_files = new int16_t[num_result_elements];
-            size_t n = read_text_data<int16_t>(buf_result_files, num_result_elements, files_path + "/_convolution.txt");
+            size_t n = read_text_data<int16_t>(buf_result_files, num_result_elements, files_path + "/_convolution_stack.txt");
             if (num_result_elements != n)
                 cout << "warning: only " << n << " result words read, " << num_result_elements << " expected." << endl;
         }
@@ -133,10 +135,10 @@ public:
 
     // calculate convolution on cpu as reference
     void run_cpu() {
-        conv2d<int8_t, int16_t>(buf_iact, buf_wght, 0, buf_result_cpu,
+        conv2d<int8_t, int16_t>(buf_iact, buf_wght, nullptr, buf_result_cpu,
             input_channels, iact_w, iact_h,
-            1, wght_w, wght_h,
-            1, 1, 1, 1);
+            output_channels, wght_w, wght_h,
+            1, 1, 0, 0);
     }
 
     void prepare_accelerator() {
@@ -233,11 +235,14 @@ public:
             throw runtime_error("BUG: mismatch of calculated accelerator parameters");
         }
 
-        recacc_config_write(dev, &cfg);
-
         // clear software result buffers
         memset(buf_result_acc, 0, num_result_elements * sizeof(buf_result_acc[0]));
         memset(buf_result_cpu, 0, num_result_elements * sizeof(buf_result_cpu[0]));
+
+        if (dryrun)
+            return;
+
+        recacc_config_write(dev, &cfg);
 
         cout << "copying input data to accelerator" << endl;
 
@@ -255,11 +260,17 @@ public:
 
     // start accelerator
     void run_accelerator() {
+        if (dryrun)
+            return;
+
         recacc_control_start(dev);
     }
 
     // wait for accelerator to finish and copy data back
     void get_accelerator_results() {
+        if (dryrun)
+            return;
+
         // wait for accelerator to finish
         recacc_wait(dev);
 
@@ -308,6 +319,10 @@ public:
         }
     }
 
+    void set_dryrun(bool enabled) {
+        dryrun = enabled;
+    }
+
 private:
     mt19937 mtrnd;
     recacc_device* dev;
@@ -322,6 +337,7 @@ private:
     int16_t* buf_result_cpu;
     int16_t* buf_result_acc;
     int16_t* buf_result_files;
+    bool dryrun;
 
     // static parameters for our test convolution
     const unsigned iact_w = 32;
@@ -333,39 +349,81 @@ private:
 };
 
 int main(int argc, char** argv) {
+    bool dryrun = false;
+
     #ifdef __linux__
+    opterr = 0;
+    int c;
     string device_name(DEFAULT_DEVICE);
     string files_path;
+
+    while ((c = getopt (argc, argv, "hnd:p:")) != -1)
+        switch (c) {
+            case 'h':
+                cout << "Usage:" << endl;
+                cout << "-h: show this help" << endl;
+                cout << "-n: no-op, do not access the accelerator" << endl;
+                cout << "-d <device>: use this uio device (default: " << DEFAULT_DEVICE << ")" << endl;
+                cout << "-p <path>: load data from path instead of random" << endl;
+                cout << "           path must contain _image.txt, _kernel.txt, _convolution.txt" << endl;
+                return 0;
+                break;
+            case 'n':
+                dryrun = true;
+                break;
+            case 'd':
+                device_name = string(optarg);
+                break;
+            case 'p':
+                files_path = string(optarg);
+                break;
+            case '?':
+                if (optopt == 'c')
+                    cerr << "Option -" << optopt << " requires an argument." << endl;
+                else if (isprint (optopt))
+                    cerr << "Unknown option -" << optopt << endl;
+                else
+                    cerr << "Unknown option character " << static_cast<int>(optopt) << endl;
+                return 1;
+            default:
+                abort ();
+        }
+
     if (argc > 1)
         device_name = string(*++argv);
     if (argc > 1)
         files_path = string(*++argv);
-
-    recacc_device dev;
-    int ret = recacc_open(&dev, device_name.c_str());
-    if (ret)
-        return ret;
-    #else
-    recacc_device dev;
-    int ret = recacc_open(&dev, 0x50000000);
     #endif
 
-    if (!recacc_verify(&dev, true)) {
-        recacc_close(&dev);
-        return ret;
-    }
+    recacc_device dev;
+    int ret = 0;
+    if (!dryrun) {
+        #ifdef __linux__
+        ret = recacc_open(&dev, device_name.c_str());
+        if (ret)
+            return ret;
+        #else
+        ret = recacc_open(&dev, 0x50000000);
+        #endif
 
-    recacc_reset(&dev);
+        if (!recacc_verify(&dev, true)) {
+            recacc_close(&dev);
+            return ret;
+        }
 
-    recacc_status status = recacc_get_status(&dev);
-    if (!status.ready) {
-        cout << "Accelerator is not ready, status register: "
-            << hex << recacc_reg_read(&dev, RECACC_REG_IDX_STATUS)
-            << endl;
-        return recacc_close(&dev);
+        recacc_reset(&dev);
+
+        recacc_status status = recacc_get_status(&dev);
+        if (!status.ready) {
+            cout << "Accelerator is not ready, status register: "
+                << hex << recacc_reg_read(&dev, RECACC_REG_IDX_STATUS)
+                << endl;
+            return recacc_close(&dev);
+        }
     }
 
     Conv2DTest c2d(&dev);
+    c2d.set_dryrun(dryrun);
 
     cout << "preparing random test data" << endl;
     c2d.prepare_data(files_path.length() > 0, files_path);
@@ -385,6 +443,8 @@ int main(int argc, char** argv) {
     cout << "comparing cpu and accelerator results" << endl;
     c2d.verify();
 
-    ret = recacc_close(&dev);
+    if (!dryrun)
+        ret = recacc_close(&dev);
+
     return ret;
 }
