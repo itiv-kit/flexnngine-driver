@@ -388,11 +388,6 @@ int main(int argc, char** argv) {
             default:
                 abort ();
         }
-
-    if (argc > 1)
-        device_name = string(*++argv);
-    if (argc > 1)
-        files_path = string(*++argv);
     #endif
 
     recacc_device dev;
