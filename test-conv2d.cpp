@@ -150,11 +150,19 @@ public:
 
         cout << "Accelerator configuration:" << endl;
         cout << "array size: " << hwinfo.array_size_y
-            << "x" << hwinfo.array_size_x << endl;
-        cout << "pe buffers: iact " << hwinfo.line_length_iact
-            << " wght " << hwinfo.line_length_wght
-            << " psum " << hwinfo.line_length_psum << endl;
-
+             << "x" << hwinfo.array_size_x << endl;
+        cout << "data width:"
+             << " iact " << hwinfo.data_width_bits_iact
+             << " wght " << hwinfo.data_width_bits_wght
+             << " psum " << hwinfo.data_width_bits_psum;
+        cout << "pe buffers:"
+             << " iact " << hwinfo.line_length_iact
+             << " wght " << hwinfo.line_length_wght
+             << " psum " << hwinfo.line_length_psum << endl;
+        cout << "scratchpad sizes:" << endl;
+        cout << " iact " << hwinfo.spad_size_iact
+             << " wght " << hwinfo.spad_size_wght
+             << " psum " << hwinfo.spad_size_psum << endl;
         recacc_config cfg;
         cfg.iact_dimension = image_size;
         cfg.wght_dimension = kernel_size;

@@ -8,7 +8,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <errno.h>
+#include <math.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -110,15 +110,28 @@ void recacc_control_stop(const recacc_device* dev) {
 }
 
 void recacc_get_hwinfo(const recacc_device* dev, recacc_hwinfo* hwinfo) {
-    (void)dev;
-    hwinfo->array_size_x = 7;
-    hwinfo->array_size_y = 10;
-    hwinfo->line_length_iact = 64;
-    hwinfo->line_length_wght = 64;
-    hwinfo->line_length_psum = 128;
-    hwinfo->spad_size_iact = RECACC_MEM_SIZE_IACT;
-    hwinfo->spad_size_wght = RECACC_MEM_SIZE_WGHT;
-    hwinfo->spad_size_psum = RECACC_MEM_SIZE_PSUM;
+    uint32_t tmp;
+
+    tmp = recacc_reg_read(dev, RECACC_REG_IDX_ARRAY_SIZE);
+    hwinfo->array_size_x = tmp & 0xffff;
+    hwinfo->array_size_y = tmp >> 16 & 0xffff;
+
+    tmp = recacc_reg_read(dev, RECACC_REG_IDX_LINE_LENGTH_1);
+    hwinfo->line_length_iact = tmp & 0xffff;
+    hwinfo->line_length_wght = tmp >> 16 & 0xffff;
+
+    hwinfo->line_length_psum = recacc_reg_read(dev, RECACC_REG_IDX_LINE_LENGTH_2);
+
+    tmp = recacc_reg_read(dev, RECACC_REG_IDX_DATA_WIDTH);
+    hwinfo->data_width_bits_iact = tmp >> 0 & 0xff;
+    hwinfo->data_width_bits_wght = tmp >> 8 & 0xff;
+    hwinfo->data_width_bits_psum = tmp >> 16 & 0xff;
+
+    tmp = recacc_reg_read(dev, RECACC_REG_IDX_ADDR_WIDTH_1);
+    hwinfo->spad_size_iact = powl(2, tmp & 0xffff);
+    hwinfo->spad_size_wght = powl(2, tmp >> 16 & 0xffff);
+
+    hwinfo->spad_size_psum = powl(2, recacc_reg_read(dev, RECACC_REG_IDX_ADDR_WIDTH_2));
 }
 
 void* recacc_get_buffer(const recacc_device* dev, enum buffer_type type) {

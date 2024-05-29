@@ -4,7 +4,7 @@ release: CFLAGS += -s -O3
 release: CXXFLAGS += -s -O3
 debug:   CFLAGS += -g -O1
 debug:   CXXFLAGS += -g -O1
-LDFLAGS =
+LDFLAGS = -lm
 
 SRCS = $(wildcard driver/*.c)
 OBJS = $(filter-out driver/baremetal.o,$(SRCS:%.c=%.o))

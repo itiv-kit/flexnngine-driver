@@ -36,13 +36,16 @@ typedef struct {
     uint32_t spad_size_iact;
     uint32_t spad_size_wght;
     uint32_t spad_size_psum;
+    uint8_t  data_width_bits_iact;
+    uint8_t  data_width_bits_wght;
+    uint8_t  data_width_bits_psum;
 } recacc_hwinfo;
 
 typedef struct {
     bool done:1;
     bool ready:1;
-    bool status_scratchpad:1;
-    bool status_addressgen:1;
+    bool ctrl_iact_done:1; // currently unimplemented
+    bool ctrl_wght_done:1; // currently unimplemented
 } __attribute__((packed)) recacc_status;
 
 union recacc_status_reg {
