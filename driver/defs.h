@@ -6,10 +6,6 @@
 #define RECACC_MEM_OFFSET_PSUM 0x80000
 #define RECACC_MEM_MAP_SIZE    0xA0000 // covers all mapped areas
 
-#define RECACC_MEM_SIZE_IACT 0x10000
-#define RECACC_MEM_SIZE_WGHT 0x10000
-#define RECACC_MEM_SIZE_PSUM 0x20000
-
 #define RECACC_MAGIC "ACC"
 
 #define RECACC_BYTE_OFFSET(idx) (idx*4)

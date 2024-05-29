@@ -31,6 +31,17 @@ template<typename T> size_t read_text_data(T* buffer, size_t size, string path) 
     return i;
 }
 
+template<typename T> size_t write_text_data(T* buffer, size_t size, size_t stride, string path) {
+    size_t i = 0;
+    ofstream outfile(path);
+    while (i < size && outfile.good()) {
+        outfile << buffer[i++];
+        if (i % stride == 0)
+            outfile << '\n';
+    }
+    return i;
+}
+
 void print_buffer(void* data, size_t len) {
     uint8_t* ints = (uint8_t*)data;
     for (size_t i=0; i<len; i+=1) {
@@ -67,8 +78,7 @@ public:
         num_result_elements = 0;
         this->dev = accelerator;
         dryrun = false;
-
-        recacc_get_hwinfo(dev, &hwinfo);
+        hwinfo.array_size_x = 0;
     }
 
     ~Conv2DTest() {
@@ -77,6 +87,28 @@ public:
         if (buf_result_cpu) delete[] buf_result_cpu;
         if (buf_result_acc) delete[] buf_result_acc;
         if (buf_result_files) delete[] buf_result_files;
+    }
+
+    void ensure_hwinfo() {
+        if (hwinfo.array_size_x != 0)
+            return;
+
+        if (dryrun) {
+            // dummy configuration for dry run
+            hwinfo.array_size_x = 7;
+            hwinfo.array_size_y = 10;
+            hwinfo.line_length_iact = 64;
+            hwinfo.line_length_wght = 64;
+            hwinfo.line_length_psum = 128;
+            hwinfo.spad_size_iact = 0x10000;
+            hwinfo.spad_size_wght = 0x10000;
+            hwinfo.spad_size_psum = 0x20000;
+            hwinfo.data_width_bits_iact = 8;
+            hwinfo.data_width_bits_wght = 8;
+            hwinfo.data_width_bits_psum = 16;
+        } else {
+            recacc_get_hwinfo(dev, &hwinfo);
+        }
     }
 
     template <typename T> void generate_random_data(T* ptr, size_t n) {
@@ -123,6 +155,8 @@ public:
             << num_wght_elements * sizeof(buf_wght[0]) << " bytes wght, "
             << num_result_elements * sizeof(buf_result_acc[0]) << " bytes psum" << endl;
 
+        ensure_hwinfo();
+
         if (num_iact_elements * sizeof(buf_iact[0]) > hwinfo.spad_size_iact)
             throw runtime_error("iact spad memory too small!");
 
@@ -148,21 +182,24 @@ public:
         assert(wght_w == wght_h);
         int kernel_size = wght_w;
 
+        ensure_hwinfo();
+
         cout << "Accelerator configuration:" << endl;
-        cout << "array size: " << hwinfo.array_size_y
+        cout << " array size: " << hwinfo.array_size_y
              << "x" << hwinfo.array_size_x << endl;
-        cout << "data width:"
-             << " iact " << hwinfo.data_width_bits_iact
-             << " wght " << hwinfo.data_width_bits_wght
-             << " psum " << hwinfo.data_width_bits_psum;
-        cout << "pe buffers:"
+        cout << " data width:"
+             << " iact " << static_cast<int>(hwinfo.data_width_bits_iact)
+             << " wght " << static_cast<int>(hwinfo.data_width_bits_wght)
+             << " psum " << static_cast<int>(hwinfo.data_width_bits_psum) << endl;
+        cout << " pe buffers:"
              << " iact " << hwinfo.line_length_iact
              << " wght " << hwinfo.line_length_wght
              << " psum " << hwinfo.line_length_psum << endl;
-        cout << "scratchpad sizes:" << endl;
+        cout << " scratchpad sizes:";
         cout << " iact " << hwinfo.spad_size_iact
              << " wght " << hwinfo.spad_size_wght
              << " psum " << hwinfo.spad_size_psum << endl;
+
         recacc_config cfg;
         cfg.iact_dimension = image_size;
         cfg.wght_dimension = kernel_size;
@@ -327,6 +364,24 @@ public:
         }
     }
 
+    void write_data(string output_path) {
+        size_t written = write_text_data<int16_t>(
+            buf_result_cpu,
+            num_result_elements,
+            iact_w - wght_w + 1,
+            output_path + "/_reference.txt");
+        if (written != num_result_elements)
+            cerr << "wrote only " << written << " elements to _reference.txt" << endl;
+
+        written = write_text_data<int16_t>(
+            buf_result_cpu,
+            num_result_elements,
+            iact_w - wght_w + 1,
+            output_path + "/_convolution.txt");
+        if (written != num_result_elements)
+            cerr << "wrote only " << written << " elements to _convolution.txt" << endl;
+    }
+
     void set_dryrun(bool enabled) {
         dryrun = enabled;
     }
@@ -364,8 +419,9 @@ int main(int argc, char** argv) {
     int c;
     string device_name(DEFAULT_DEVICE);
     string files_path;
+    string output_path;
 
-    while ((c = getopt (argc, argv, "hnd:p:")) != -1)
+    while ((c = getopt (argc, argv, "hnd:p:o:")) != -1)
         switch (c) {
             case 'h':
                 cout << "Usage:" << endl;
@@ -374,6 +430,7 @@ int main(int argc, char** argv) {
                 cout << "-d <device>: use this uio device (default: " << DEFAULT_DEVICE << ")" << endl;
                 cout << "-p <path>: load data from path instead of random" << endl;
                 cout << "           path must contain _image.txt, _kernel.txt, _convolution.txt" << endl;
+                cout << "-o <path>: save output data to path (_reference.txt, _output.txt)" << endl;
                 return 0;
                 break;
             case 'n':
@@ -384,6 +441,9 @@ int main(int argc, char** argv) {
                 break;
             case 'p':
                 files_path = string(optarg);
+                break;
+            case 'o':
+                output_path = string(optarg);
                 break;
             case '?':
                 if (optopt == 'c')
@@ -445,6 +505,9 @@ int main(int argc, char** argv) {
 
     cout << "comparing cpu and accelerator results" << endl;
     c2d.verify();
+
+    if (output_path.length())
+        c2d.write_data(output_path);
 
     if (!dryrun)
         ret = recacc_close(&dev);
