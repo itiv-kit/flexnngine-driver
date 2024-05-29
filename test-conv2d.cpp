@@ -345,9 +345,11 @@ public:
 
             if (incorrect > 0) {
                 cout << "CPU result (64 bytes at " << incorrect_offset << "):" << endl;
-                print_buffer(buf_result_cpu + incorrect_offset, 64);
+                if (incorrect_offset > 32)
+                    incorrect_offset -= 32;
+                print_buffer(buf_result_cpu + incorrect_offset, 128);
                 cout << "Reference result from file:" << endl;
-                print_buffer(buf_result_files + incorrect_offset, 64);
+                print_buffer(buf_result_files + incorrect_offset, 128);
             }
         }
 
@@ -355,15 +357,17 @@ public:
         size_t incorrect;
         size_t incorrect_offset = compare_buffers(buf_result_acc, buf_result_cpu, num_result_elements, incorrect);
         if (incorrect > 0)
-            cout << incorrect << " values INCORRECT" << endl;
+            cout << incorrect << " values INCORRECT, first at " << incorrect_offset << endl;
         else
             cout << "CORRECT" << endl;
 
         if (incorrect > 0) {
+            if (incorrect_offset > 32)
+                incorrect_offset -= 32;
             cout << "CPU result (64 bytes at " << incorrect_offset << "):" << endl;
-            print_buffer(buf_result_cpu + incorrect_offset, 64);
+            print_buffer(buf_result_cpu + incorrect_offset, 128);
             cout << "ACC result:" << endl;
-            print_buffer(buf_result_acc + incorrect_offset, 64);
+            print_buffer(buf_result_acc + incorrect_offset, 128);
         }
     }
 
