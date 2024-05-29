@@ -1,11 +1,8 @@
 #include <assert.h>
 #include <iostream>
-#include <iomanip>
 #include <stdexcept>
 #include <cstring>
 #include <string>
-#include <vector>
-#include <sstream>
 #include <fstream>
 #include <chrono>
 #include <random>
@@ -324,43 +321,49 @@ public:
         memcpy(buf_result_acc, psum_addr, num_result_elements * sizeof(buf_result_acc[0]));
     }
 
-    int compare_buffers(int16_t* buf_a, int16_t* buf_b, size_t buf_size) {
-        size_t incorrect = 0;
+    size_t compare_buffers(int16_t* buf_a, int16_t* buf_b, size_t buf_size, size_t& incorrect_cnt) {
+        size_t incorrect_offset = ~0LU;
+        incorrect_cnt = 0;
         for (size_t n = 0; n < buf_size; n++)
-            if (buf_a[n] != buf_b[n])
-                incorrect++;
-        return incorrect;
+            if (buf_a[n] != buf_b[n]) {
+                if (incorrect_offset == ~0LU)
+                    incorrect_offset = n;
+                incorrect_cnt++;
+            }
+        return incorrect_offset;
     }
 
     void verify() {
         if (buf_result_files) {
             cout << "comparing " << num_result_elements << " cpu values to the file reference... ";
-            size_t incorrect = compare_buffers(buf_result_cpu, buf_result_files, num_result_elements);
+            size_t incorrect;
+            size_t incorrect_offset = compare_buffers(buf_result_cpu, buf_result_files, num_result_elements, incorrect);
             if (incorrect > 0)
-                cout << incorrect << " values INCORRECT" << endl;
+                cout << incorrect << " values INCORRECT, first at " << incorrect_offset << endl;
             else
                 cout << "CORRECT" << endl;
 
             if (incorrect > 0) {
-                cout << "CPU result:" << endl;
-                print_buffer(buf_result_cpu, 64);
+                cout << "CPU result (64 bytes at " << incorrect_offset << "):" << endl;
+                print_buffer(buf_result_cpu + incorrect_offset, 64);
                 cout << "Reference result from file:" << endl;
-                print_buffer(buf_result_files, 64);
+                print_buffer(buf_result_files + incorrect_offset, 64);
             }
         }
 
         cout << "comparing " << num_result_elements << " output values... ";
-        size_t incorrect = compare_buffers(buf_result_acc, buf_result_cpu, num_result_elements);
+        size_t incorrect;
+        size_t incorrect_offset = compare_buffers(buf_result_acc, buf_result_cpu, num_result_elements, incorrect);
         if (incorrect > 0)
             cout << incorrect << " values INCORRECT" << endl;
         else
             cout << "CORRECT" << endl;
 
         if (incorrect > 0) {
-            cout << "CPU result:" << endl;
-            print_buffer(buf_result_cpu, 64);
+            cout << "CPU result (64 bytes at " << incorrect_offset << "):" << endl;
+            print_buffer(buf_result_cpu + incorrect_offset, 64);
             cout << "ACC result:" << endl;
-            print_buffer(buf_result_acc, 64);
+            print_buffer(buf_result_acc + incorrect_offset, 64);
         }
     }
 
