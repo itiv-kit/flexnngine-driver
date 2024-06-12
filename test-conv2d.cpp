@@ -364,6 +364,7 @@ public:
 
             if (incorrect > 0) {
                 cout << "CPU result (128 words at " << incorrect_offset << "):" << endl;
+                incorrect_offset %= 16;
                 if (incorrect_offset > 32)
                     incorrect_offset -= 32;
                 print_buffer<int16_t>(buf_result_cpu, 128, incorrect_offset);
@@ -381,6 +382,7 @@ public:
             cout << "CORRECT" << endl;
 
         if (incorrect > 0) {
+            incorrect_offset %= 16;
             if (incorrect_offset > 32)
                 incorrect_offset -= 32;
             cout << "CPU result (128 words at " << incorrect_offset << "):" << endl;
