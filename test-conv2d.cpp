@@ -39,19 +39,37 @@ template<typename T> size_t write_text_data(T* buffer, size_t size, size_t strid
     return i;
 }
 
-void print_buffer(void* data, size_t len) {
-    uint8_t* ints = (uint8_t*)data;
-    for (size_t i=0; i<len; i+=1) {
-        if (i%8 == 0)
-            printf("0x%04lx: ", i);
-        printf("%02x", ints[i]);
-        if (i%8 != 7)
+template<typename T> void print_buffer(void* data, size_t words, size_t offset = 0, size_t words_per_line = 8) {
+    T* ints = static_cast<T*>(data) + offset;
+    for (size_t i=0; i<words; i+=1) {
+        if (i % words_per_line == 0)
+            printf("0x%04lx: ", i + offset);
+        using unsigned_type = std::make_unsigned_t<T>;
+        cout << setfill('0') << hex << setw(sizeof(T)*2)
+             << (static_cast<int32_t>(ints[i]) & numeric_limits<unsigned_type>::max());
+        if (i % words_per_line != 7)
             putchar(' ');
         else
             putchar('\n');
     }
-    if (len%8)
+    if (words % words_per_line)
         putchar('\n');
+}
+
+void test_print_buffer() {
+    uint32_t buf[] = {
+        0xdeadbeef,
+        0xdeadbeef,
+        0xdeadbeef,
+        0xdeadbeef,
+        0x11223344,
+        0x55667788,
+        0xaabbccdd,
+        0x00000011
+    };
+    print_buffer<int8_t>(buf, 16, 16);
+    print_buffer<int16_t>(buf, 8,  8);
+    print_buffer<int32_t>(buf, 4,  4);
 }
 
 auto make_multiple_of(auto div, auto value) {
@@ -344,12 +362,12 @@ public:
                 cout << "CORRECT" << endl;
 
             if (incorrect > 0) {
-                cout << "CPU result (64 bytes at " << incorrect_offset << "):" << endl;
+                cout << "CPU result (128 words at " << incorrect_offset << "):" << endl;
                 if (incorrect_offset > 32)
                     incorrect_offset -= 32;
-                print_buffer(buf_result_cpu + incorrect_offset, 128);
+                print_buffer<int16_t>(buf_result_cpu, 128, incorrect_offset);
                 cout << "Reference result from file:" << endl;
-                print_buffer(buf_result_files + incorrect_offset, 128);
+                print_buffer<int16_t>(buf_result_files, 128, incorrect_offset);
             }
         }
 
@@ -364,10 +382,11 @@ public:
         if (incorrect > 0) {
             if (incorrect_offset > 32)
                 incorrect_offset -= 32;
-            cout << "CPU result (64 bytes at " << incorrect_offset << "):" << endl;
-            print_buffer(buf_result_cpu + incorrect_offset, 128);
+            cout << "CPU result (128 words at " << incorrect_offset << "):" << endl;
+            print_buffer<int16_t>(buf_result_cpu, 128, incorrect_offset);
+            print_buffer<int8_t>(buf_result_cpu, 128, incorrect_offset*2);
             cout << "ACC result:" << endl;
-            print_buffer(buf_result_acc + incorrect_offset, 128);
+            print_buffer<int16_t>(buf_result_acc, 128, incorrect_offset);
         }
     }
 
