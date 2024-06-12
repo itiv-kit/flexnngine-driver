@@ -385,7 +385,6 @@ public:
                 incorrect_offset -= 32;
             cout << "CPU result (128 words at " << incorrect_offset << "):" << endl;
             print_buffer<int16_t>(buf_result_cpu, 128, incorrect_offset);
-            print_buffer<int8_t>(buf_result_cpu, 128, incorrect_offset*2);
             cout << "ACC result:" << endl;
             print_buffer<int16_t>(buf_result_acc, 128, incorrect_offset);
         }
