@@ -335,9 +335,17 @@ public:
         // wait for accelerator to finish
         recacc_wait(dev);
 
+        // read diagnostic registers and validate hardware status after processing
+        uint32_t psum_overflows = recacc_reg_read(dev, RECACC_REG_IDX_PSUM_OVERFLOWS);
+        if (psum_overflows)
+            cout << "WARNING: psum overflows in hardware (" << psum_overflows << "), results may be invalid." << endl;
+
         // copy data back
         void* psum_addr = recacc_get_buffer(dev, buffer_type::psum);
         memcpy(buf_result_acc, psum_addr, num_result_elements * sizeof(buf_result_acc[0]));
+
+        // deassert start bit, this resets the control logic and allows for starting the next iteration
+        recacc_control_stop(dev);
     }
 
     size_t compare_buffers(int16_t* buf_a, int16_t* buf_b, size_t buf_size, size_t& incorrect_cnt) {

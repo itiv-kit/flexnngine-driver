@@ -44,8 +44,8 @@ typedef struct {
 typedef struct {
     bool done:1;
     bool ready:1;
-    bool ctrl_iact_done:1; // currently unimplemented
-    bool ctrl_wght_done:1; // currently unimplemented
+    bool ctrl_iact_done:1;
+    bool ctrl_wght_done:1;
 } __attribute__((packed)) recacc_status;
 
 union recacc_status_reg {
