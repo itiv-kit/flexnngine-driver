@@ -327,6 +327,8 @@ public:
         if (dryrun)
             return;
 
+        dump_status_register();
+
         recacc_control_start(dev);
     }
 
@@ -339,6 +341,7 @@ public:
         recacc_wait(dev);
 
         // read diagnostic registers and validate hardware status after processing
+        dump_status_register();
         uint32_t psum_overflows = recacc_reg_read(dev, RECACC_REG_IDX_PSUM_OVERFLOWS);
         if (psum_overflows)
             cout << "WARNING: psum overflows in hardware (" << psum_overflows << "), results may be invalid." << endl;
@@ -427,6 +430,16 @@ public:
 
     void set_dryrun(bool enabled) {
         dryrun = enabled;
+    }
+
+    void dump_status_register() {
+        union recacc_status_reg status;
+        status.raw = recacc_reg_read(dev, RECACC_REG_IDX_STATUS);
+        cout << "Status register " << hex << setfill('0') << setw(8) << status.raw << ":" << endl;
+        cout << "  ready     " << status.decoded.ready << endl;
+        cout << "  done      " << status.decoded.done << endl;
+        cout << "  iact_done " << status.decoded.ctrl_iact_done << endl;
+        cout << "  wght_done " << status.decoded.ctrl_wght_done << endl;
     }
 
 private:
