@@ -33,7 +33,7 @@ template<typename T> size_t write_text_data(T* buffer, size_t size, size_t strid
     size_t i = 0;
     ofstream outfile(path);
     while (i < size && outfile.good()) {
-        outfile << buffer[i++];
+        outfile << buffer[i++] << ' ';
         if (i % stride == 0)
             outfile << '\n';
     }
@@ -407,17 +407,17 @@ public:
             buf_result_cpu,
             num_result_elements,
             iact_w - wght_w + 1,
-            output_path + "/_reference.txt");
+            output_path + "/_output_cpu.txt");
         if (written != num_result_elements)
-            cerr << "wrote only " << written << " elements to _reference.txt" << endl;
+            cerr << "wrote only " << written << " elements to _output_cpu.txt" << endl;
 
         written = write_text_data<int16_t>(
-            buf_result_cpu,
+            buf_result_acc,
             num_result_elements,
             iact_w - wght_w + 1,
-            output_path + "/_convolution.txt");
+            output_path + "/_output_acc.txt");
         if (written != num_result_elements)
-            cerr << "wrote only " << written << " elements to _convolution.txt" << endl;
+            cerr << "wrote only " << written << " elements to _output_acc.txt" << endl;
     }
 
     void set_dryrun(bool enabled) {
@@ -468,7 +468,7 @@ int main(int argc, char** argv) {
                 cout << "-d <device>: use this uio device (default: " << DEFAULT_DEVICE << ")" << endl;
                 cout << "-p <path>: load data from path instead of random" << endl;
                 cout << "           path must contain _image.txt, _kernel.txt, _convolution.txt" << endl;
-                cout << "-o <path>: save output data to path (_reference.txt, _output.txt)" << endl;
+                cout << "-o <path>: save output data to path (_output_acc.txt, _output_cpu.txt)" << endl;
                 return 0;
                 break;
             case 'n':
