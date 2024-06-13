@@ -40,18 +40,21 @@ template<typename T> size_t write_text_data(T* buffer, size_t size, size_t strid
     return i;
 }
 
-template<typename T> void print_buffer(void* data, size_t words, size_t offset = 0, size_t words_per_line = 8) {
+template<typename T> void print_buffer(void* data, size_t words, size_t offset = 0, size_t words_per_line = 8, int32_t highlight = -1) {
     T* ints = static_cast<T*>(data) + offset;
     for (size_t i=0; i<words; i+=1) {
         if (i % words_per_line == 0)
-            printf("0x%04lx: ", i + offset);
+            cout << "0x" << setfill('0') << hex << setw(4) << i + offset << ": ";
         using unsigned_type = std::make_unsigned_t<T>;
         cout << setfill('0') << hex << setw(sizeof(T)*2)
              << (static_cast<int32_t>(ints[i]) & numeric_limits<unsigned_type>::max());
         if (i % words_per_line != 7)
-            putchar(' ');
-        else
-            putchar('\n');
+            cout << ' ';
+        else {
+            if (highlight != -1 && (highlight / words_per_line == i / words_per_line))
+                cout << " <--";
+            cout << endl;
+        }
     }
     if (words % words_per_line)
         putchar('\n');
@@ -68,9 +71,9 @@ void test_print_buffer() {
         0xaabbccdd,
         0x00000011
     };
-    print_buffer<int8_t>(buf, 16, 16);
-    print_buffer<int16_t>(buf, 8,  8);
-    print_buffer<int32_t>(buf, 4,  4);
+    print_buffer<int8_t>(buf, 16, 16, 8, 8);
+    print_buffer<int16_t>(buf, 8,  8, 8, 8);
+    print_buffer<int32_t>(buf, 4,  4, 8, 8);
 }
 
 auto make_multiple_of(auto div, auto value) {
@@ -372,13 +375,14 @@ public:
 
             if (incorrect > 0) {
                 cout << "CPU result (128 words at " << incorrect_offset << "):" << endl;
-                if (incorrect_offset > 16)
-                    incorrect_offset -= incorrect_offset % 16;
-                if (incorrect_offset > 32)
-                    incorrect_offset -= 32;
-                print_buffer<int16_t>(buf_result_cpu, 128, incorrect_offset);
+                size_t display_offset = incorrect_offset;
+                if (display_offset > 16)
+                    display_offset -= display_offset % 16;
+                if (display_offset > 32)
+                    display_offset -= 32;
+                print_buffer<int16_t>(buf_result_cpu, 128, display_offset, 8, display_offset);
                 cout << "Reference result from file:" << endl;
-                print_buffer<int16_t>(buf_result_files, 128, incorrect_offset);
+                print_buffer<int16_t>(buf_result_files, 128, display_offset, 8, display_offset);
             }
         }
 
@@ -391,14 +395,15 @@ public:
             cout << "CORRECT" << endl;
 
         if (incorrect > 0) {
-            if (incorrect_offset > 16)
-                incorrect_offset -= incorrect_offset % 16;
-            if (incorrect_offset > 32)
-                incorrect_offset -= 32;
+            size_t display_offset = incorrect_offset;
+            if (display_offset > 16)
+                display_offset -= display_offset % 16;
+            if (display_offset > 32)
+                display_offset -= 32;
             cout << "CPU result (128 words at " << incorrect_offset << "):" << endl;
-            print_buffer<int16_t>(buf_result_cpu, 128, incorrect_offset);
+            print_buffer<int16_t>(buf_result_cpu, 128, display_offset, 8, incorrect_offset);
             cout << "ACC result:" << endl;
-            print_buffer<int16_t>(buf_result_acc, 128, incorrect_offset);
+            print_buffer<int16_t>(buf_result_acc, 128, display_offset, 8, incorrect_offset);
         }
     }
 
