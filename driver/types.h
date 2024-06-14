@@ -46,6 +46,7 @@ typedef struct {
     bool ready:1;
     bool ctrl_iact_done:1;
     bool ctrl_wght_done:1;
+    bool preload_done:1;
 } __attribute__((packed)) recacc_status;
 
 union recacc_status_reg {

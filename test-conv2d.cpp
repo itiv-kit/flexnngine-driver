@@ -440,6 +440,7 @@ public:
         cout << "  done      " << status.decoded.done << endl;
         cout << "  iact_done " << status.decoded.ctrl_iact_done << endl;
         cout << "  wght_done " << status.decoded.ctrl_wght_done << endl;
+        cout << "  preload   " << status.decoded.preload_done << endl;
     }
 
 private:
