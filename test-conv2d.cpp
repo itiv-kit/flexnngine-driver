@@ -156,7 +156,7 @@ public:
             if (num_wght_elements != n)
                 cout << "warning: only " << n << " wght words read, " << num_wght_elements << " expected." << endl;
         } else
-            generate_random_data<int8_t>(buf_wght, wght_w * wght_h);
+            generate_random_data<int8_t>(buf_wght, num_wght_elements);
 
         const int output_size = (iact_w - wght_w + 1) * (iact_h - wght_h + 1); // no padding
         num_result_elements = make_multiple_of(8, output_size * output_channels);
