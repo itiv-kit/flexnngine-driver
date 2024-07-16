@@ -301,6 +301,22 @@ public:
             throw runtime_error("BUG: mismatch of calculated accelerator parameters");
         }
 
+        cout << "Accelerator run parameters:" << endl;
+        cout << "  iact_dimension  " << cfg.iact_dimension << endl;
+        cout << "  wght_dimension  " << cfg.wght_dimension << endl;
+        cout << "  input_channels  " << cfg.input_channels << endl;
+        cout << "  output_channels " << cfg.output_channels << endl;
+        cout << "  c1              " << cfg.c1 << endl;
+        cout << "  w1              " << cfg.w1 << endl;
+        cout << "  h2              " << cfg.h2 << endl;
+        cout << "  my              " << cfg.m0 << endl;
+        cout << "  m0_last_m1      " << cfg.m0_last_m1 << endl;
+        cout << "  rows_last_h2    " << cfg.rows_last_h2 << endl;
+        cout << "  c0              " << cfg.c0 << endl;
+        cout << "  c0_last_c1      " << cfg.c0_last_c1 << endl;
+        cout << "  c0w0            " << cfg.c0w0 << endl;
+        cout << "  c0w0_last_c1    " << cfg.c0w0_last_c1 << endl;
+
         // clear software result buffers
         memset(buf_result_acc, 0, num_result_elements * sizeof(buf_result_acc[0]));
         memset(buf_result_cpu, 0, num_result_elements * sizeof(buf_result_cpu[0]));
@@ -438,7 +454,7 @@ public:
     void dump_status_register() {
         union recacc_status_reg status;
         status.raw = recacc_reg_read(dev, RECACC_REG_IDX_STATUS);
-        cout << "Status register " << hex << setfill('0') << setw(8) << status.raw << ":" << endl;
+        cout << "Status register 0x" << hex << setfill('0') << setw(8) << status.raw << dec << ":" << endl;
         cout << "  ready     " << status.decoded.ready << endl;
         cout << "  done      " << status.decoded.done << endl;
         cout << "  iact_done " << status.decoded.ctrl_iact_done << endl;
