@@ -42,6 +42,8 @@ template<typename T> size_t write_text_data(T* buffer, size_t size, size_t strid
 
 template<typename T> void print_buffer(void* data, size_t words, size_t offset = 0, size_t words_per_line = 8, int32_t highlight = -1) {
     T* ints = static_cast<T*>(data) + offset;
+    if (highlight != -1)
+        highlight = (highlight - offset) / words_per_line;
     for (size_t i=0; i<words; i+=1) {
         if (i % words_per_line == 0)
             cout << "0x" << setfill('0') << hex << setw(4) << i + offset << ": ";
@@ -51,7 +53,7 @@ template<typename T> void print_buffer(void* data, size_t words, size_t offset =
         if (i % words_per_line != 7)
             cout << ' ';
         else {
-            if (highlight != -1 && (highlight / words_per_line == i / words_per_line))
+            if (highlight != -1 && static_cast<size_t>(highlight) == (i / words_per_line))
                 cout << " <--";
             cout << endl;
         }
@@ -377,15 +379,14 @@ public:
                 cout << "CORRECT" << endl;
 
             if (incorrect > 0) {
-                cout << "CPU result (128 words at " << incorrect_offset << "):" << endl;
                 size_t display_offset = incorrect_offset;
-                if (display_offset > 16)
-                    display_offset -= display_offset % 16;
+                display_offset -= display_offset % 16;
                 if (display_offset > 32)
                     display_offset -= 32;
-                print_buffer<int16_t>(buf_result_cpu, 128, display_offset, 8, display_offset);
+                cout << "CPU result (128 words at " << display_offset << "):" << endl;
+                print_buffer<int16_t>(buf_result_cpu, 128, display_offset, 8, incorrect_offset);
                 cout << "Reference result from file:" << endl;
-                print_buffer<int16_t>(buf_result_files, 128, display_offset, 8, display_offset);
+                print_buffer<int16_t>(buf_result_files, 128, display_offset, 8, incorrect_offset);
             }
         }
 
@@ -399,14 +400,16 @@ public:
 
         if (incorrect > 0) {
             size_t display_offset = incorrect_offset;
-            if (display_offset > 16)
-                display_offset -= display_offset % 16;
+            display_offset -= display_offset % 16;
             if (display_offset > 32)
                 display_offset -= 32;
-            cout << "CPU result (128 words at " << incorrect_offset << "):" << endl;
+            cout << "CPU result (128 words at " << display_offset << "):" << endl;
             print_buffer<int16_t>(buf_result_cpu, 128, display_offset, 8, incorrect_offset);
             cout << "ACC result:" << endl;
             print_buffer<int16_t>(buf_result_acc, 128, display_offset, 8, incorrect_offset);
+            cout << "wght buffer:" << endl;
+            void* wght_addr = recacc_get_buffer(dev, buffer_type::wght);
+            print_buffer<int8_t>(wght_addr, 128, 0);
         }
     }
 
