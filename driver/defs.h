@@ -13,8 +13,8 @@
 
 #define RECACC_REG_IDX_CONTROL           0
 #define RECACC_REG_IDX_STATUS            1
-#define RECACC_REG_IDX_CHANNELS          2
-#define RECACC_REG_IDX_KERNELS           3
+#define RECACC_REG_IDX_INPUTCHS          2
+#define RECACC_REG_IDX_OUTPUTCHS         3
 #define RECACC_REG_IDX_IMAGE_Y           4
 #define RECACC_REG_IDX_IMAGE_X           5
 #define RECACC_REG_IDX_KERNEL_SIZE       6

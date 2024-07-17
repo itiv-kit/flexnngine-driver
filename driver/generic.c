@@ -41,8 +41,8 @@ void recacc_reset(recacc_device* dev) {
 int recacc_config_read(const recacc_device* dev, recacc_config* cfg) {
     cfg->iact_dimension  = recacc_reg_read(dev, RECACC_REG_IDX_IMAGE_Y); // identical to RECACC_REG_IDX_IMAGE_X
     cfg->wght_dimension  = recacc_reg_read(dev, RECACC_REG_IDX_KERNEL_SIZE);
-    cfg->input_channels  = recacc_reg_read(dev, RECACC_REG_IDX_KERNELS);
-    cfg->output_channels = recacc_reg_read(dev, RECACC_REG_IDX_CHANNELS);
+    cfg->input_channels  = recacc_reg_read(dev, RECACC_REG_IDX_INPUTCHS);
+    cfg->output_channels = recacc_reg_read(dev, RECACC_REG_IDX_OUTPUTCHS);
     cfg->c1              = recacc_reg_read(dev, RECACC_REG_IDX_CONV_C1);
     cfg->w1              = recacc_reg_read(dev, RECACC_REG_IDX_CONV_W1);
     cfg->h2              = recacc_reg_read(dev, RECACC_REG_IDX_CONV_H2);
@@ -63,8 +63,8 @@ int recacc_config_write(const recacc_device* dev, const recacc_config* cfg) {
     recacc_reg_write(dev, RECACC_REG_IDX_IMAGE_X, cfg->iact_dimension); // rectangular shapes only (for now)
     recacc_reg_write(dev, RECACC_REG_IDX_IMAGE_Y, cfg->iact_dimension);
     recacc_reg_write(dev, RECACC_REG_IDX_KERNEL_SIZE, cfg->wght_dimension);
-    recacc_reg_write(dev, RECACC_REG_IDX_KERNELS, cfg->input_channels);
-    recacc_reg_write(dev, RECACC_REG_IDX_CHANNELS, cfg->output_channels);
+    recacc_reg_write(dev, RECACC_REG_IDX_INPUTCHS, cfg->input_channels);
+    recacc_reg_write(dev, RECACC_REG_IDX_OUTPUTCHS, cfg->output_channels);
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_C1, cfg->c1);
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_W1, cfg->w1);
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_H2, cfg->h2);
