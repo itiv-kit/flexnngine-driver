@@ -36,7 +36,9 @@ bool recacc_poll(const recacc_device* dev);
 
 // wait until the accelerator is ready
 // this call blocks until an interrupt is received
-void recacc_wait(const recacc_device* dev);
+// returns true if wait was successful
+// returns false after a 1-second timeout (hardware stuck)
+bool recacc_wait(const recacc_device* dev);
 
 // read the status register and return its value as a decoded struct
 recacc_status recacc_get_status(const recacc_device* dev);

@@ -356,7 +356,12 @@ public:
             return;
 
         // wait for accelerator to finish
-        recacc_wait(dev);
+        bool success = recacc_wait(dev);
+        if (!success) {
+            cout << "ERROR: timeout waiting for hardware, probably stuck!" << endl;
+            dump_status_register();
+            exit(1);
+        }
 
         // read diagnostic registers and validate hardware status after processing
         dump_status_register();

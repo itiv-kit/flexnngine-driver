@@ -1,5 +1,6 @@
 #include "generic.h"
 #include "defs.h"
+#include <stdbool.h>
 
 #define __USE_MISC
 
@@ -7,6 +8,7 @@
 #include <math.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 
 bool recacc_verify(recacc_device* dev, bool print_info) {
     uint32_t magic_reg = recacc_reg_read(dev, RECACC_REG_IDX_MAGIC);
@@ -153,11 +155,35 @@ bool recacc_poll(const recacc_device* dev) {
     return status.ready || status.done;
 }
 
-void recacc_wait(const recacc_device* dev) {
+#ifdef __linux__
+static bool _recacc_wait_linux(const recacc_device* dev) {
     // TODO: implement with interrupts instead of polling
+    time_t start = time(NULL);
     while (!recacc_poll(dev)) {
-        #ifdef __linux__
         usleep(100000);
-        #endif
+        if (time(NULL) > start)
+            return false;
     }
+    return true;
 }
+#else
+static bool _recacc_wait_baremetal(const recacc_device* dev) {
+    // TODO: implement with interrupts instead of polling
+    int timeout = 1000;
+    while (timeout && !recacc_poll(dev)) {
+        for(volatile int i=0; i<10000; i++);
+        timeout--;
+    }
+    if (timeout == 0)
+        return false;
+    return true;
+}
+#endif
+
+bool recacc_wait(const recacc_device* dev) {
+    #ifdef __linux__
+    _recacc_wait_linux(dev);
+    #else
+    _recacc_wait_baremetal(dev);
+    #endif
+ }
