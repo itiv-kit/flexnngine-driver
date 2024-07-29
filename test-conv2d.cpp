@@ -58,6 +58,7 @@ template<typename T> void print_buffer(void* data, size_t words, size_t offset =
             cout << endl;
         }
     }
+    cout << dec;
     if (words % words_per_line)
         putchar('\n');
 }
@@ -321,7 +322,7 @@ public:
         cout << "  c1              " << cfg.c1 << endl;
         cout << "  w1              " << cfg.w1 << endl;
         cout << "  h2              " << cfg.h2 << endl;
-        cout << "  my              " << cfg.m0 << endl;
+        cout << "  m0              " << cfg.m0 << endl;
         cout << "  m0_last_m1      " << cfg.m0_last_m1 << endl;
         cout << "  rows_last_h2    " << cfg.rows_last_h2 << endl;
         cout << "  c0              " << cfg.c0 << endl;
