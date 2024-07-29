@@ -544,7 +544,7 @@ int main(int argc, char** argv) {
         if (ret)
             return ret;
         #else
-        ret = recacc_open(&dev, 0x50000000);
+        ret = recacc_open(&dev, (void*) 0x50000000);
         #endif
 
         if (!recacc_verify(&dev, true)) {
@@ -567,7 +567,11 @@ int main(int argc, char** argv) {
     c2d.set_dryrun(dryrun);
 
     cout << "preparing random test data" << endl;
+    #ifdef __linux__
     c2d.prepare_data(files_path.length() > 0, files_path);
+    #else
+    c2d.prepare_data(false, string());
+    #endif
 
     cout << "calculating accelerator parameters" << endl;
     c2d.prepare_accelerator();
@@ -584,8 +588,10 @@ int main(int argc, char** argv) {
     cout << "comparing cpu and accelerator results" << endl;
     c2d.verify();
 
+    #ifdef __linux__
     if (output_path.length())
         c2d.write_data(output_path);
+    #endif
 
     if (!dryrun)
         ret = recacc_close(&dev);

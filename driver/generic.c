@@ -3,10 +3,6 @@
 
 #define __USE_MISC
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <fcntl.h>
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
@@ -34,7 +30,11 @@ bool recacc_verify(recacc_device* dev, bool print_info) {
 
 void recacc_reset(recacc_device* dev) {
     recacc_reg_write(dev, RECACC_REG_IDX_CONTROL, (1 << RECACC_BIT_IDX_CONTROL_RESET));
+    #ifdef __linux__
     usleep(10000);
+    #else
+    for(volatile int i=0; i<10000; i++);
+    #endif
     recacc_reg_write(dev, RECACC_REG_IDX_CONTROL, 0);
 }
 
@@ -155,6 +155,9 @@ bool recacc_poll(const recacc_device* dev) {
 
 void recacc_wait(const recacc_device* dev) {
     // TODO: implement with interrupts instead of polling
-    while (!recacc_poll(dev))
+    while (!recacc_poll(dev)) {
+        #ifdef __linux__
         usleep(100000);
+        #endif
+    }
 }
