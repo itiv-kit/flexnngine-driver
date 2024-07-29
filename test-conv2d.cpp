@@ -97,6 +97,9 @@ public:
         num_iact_elements = 0;
         num_wght_elements = 0;
         num_result_elements = 0;
+        num_iact_elements_aligned = 0;
+        num_wght_elements_aligned = 0;
+        num_result_elements_aligned = 0;
         this->dev = accelerator;
         dryrun = false;
         hwinfo.array_size_x = 0;
@@ -142,28 +145,37 @@ public:
         cout << "  " << iact_w << "x" << iact_h << ", " << input_channels << " ch input activations" << endl;
         cout << "  " << wght_w << "x" << wght_h << " kernels and " << output_channels << " output channels" << endl;
 
-        num_iact_elements = make_multiple_of(8, iact_w * iact_h * input_channels);
-        buf_iact = new int8_t[num_iact_elements];
+        num_iact_elements = iact_w * iact_h * input_channels;
+        num_iact_elements_aligned = make_multiple_of(8, num_iact_elements);
+        buf_iact = new int8_t[num_iact_elements_aligned];
         if (data_from_files) {
             size_t n = read_text_data<int8_t>(buf_iact, num_iact_elements, files_path + "/_image.txt");
-            if (num_iact_elements != n)
+            if (num_iact_elements != n) {
                 cout << "warning: only " << n << " iact words read, " << num_iact_elements << " expected." << endl;
+                memset(buf_iact + n, 0, num_iact_elements - n);
+            }
         } else
             generate_random_data<int8_t>(buf_iact, num_iact_elements);
+        memset(buf_iact + num_iact_elements, 0, num_iact_elements_aligned - num_iact_elements);
 
-        num_wght_elements = make_multiple_of(8, wght_w * wght_h * input_channels * output_channels);
-        buf_wght = new int8_t[num_wght_elements];
+        num_wght_elements = wght_w * wght_h * input_channels * output_channels;
+        num_wght_elements_aligned = make_multiple_of(8, num_wght_elements);
+        buf_wght = new int8_t[num_wght_elements_aligned];
         if (data_from_files) {
             size_t n = read_text_data<int8_t>(buf_wght, num_wght_elements, files_path + "/_kernel_stack.txt");
-            if (num_wght_elements != n)
+            if (num_wght_elements != n) {
                 cout << "warning: only " << n << " wght words read, " << num_wght_elements << " expected." << endl;
+                memset(buf_wght + n, 0, num_wght_elements - n);
+            }
         } else
             generate_random_data<int8_t>(buf_wght, num_wght_elements);
+        memset(buf_wght + num_wght_elements, 0, num_wght_elements_aligned - num_wght_elements);
 
         const int output_size = (iact_w - wght_w + 1) * (iact_h - wght_h + 1); // no padding
-        num_result_elements = make_multiple_of(8, output_size * output_channels);
+        num_result_elements = output_size * output_channels;
+        num_result_elements_aligned = make_multiple_of(8, num_result_elements);
         buf_result_cpu = new int16_t[num_result_elements];
-        buf_result_acc = new int16_t[num_result_elements];
+        buf_result_acc = new int16_t[num_result_elements_aligned];
         if (data_from_files) {
             buf_result_files = new int16_t[num_result_elements];
             size_t n = read_text_data<int16_t>(buf_result_files, num_result_elements, files_path + "/_convolution_stack.txt");
@@ -318,7 +330,7 @@ public:
         cout << "  c0w0_last_c1    " << cfg.c0w0_last_c1 << endl;
 
         // clear software result buffers
-        memset(buf_result_acc, 0, num_result_elements * sizeof(buf_result_acc[0]));
+        memset(buf_result_acc, 0, num_result_elements_aligned * sizeof(buf_result_acc[0]));
         memset(buf_result_cpu, 0, num_result_elements * sizeof(buf_result_cpu[0]));
 
         if (dryrun)
@@ -330,14 +342,15 @@ public:
 
         // copy accelerator input data
         void* iact_addr = recacc_get_buffer(dev, buffer_type::iact);
-        memcpy(iact_addr, buf_iact, num_iact_elements * sizeof(buf_iact[0]));
+        memcpy(iact_addr, buf_iact, num_iact_elements_aligned * sizeof(buf_iact[0]));
 
         void* wght_addr = recacc_get_buffer(dev, buffer_type::wght);
-        memcpy(wght_addr, buf_wght, num_wght_elements * sizeof(buf_wght[0]));
+        memcpy(wght_addr, buf_wght, num_wght_elements_aligned * sizeof(buf_wght[0]));
 
         // also clear the hardware result buffer to ease debugging
         void* psum_addr = recacc_get_buffer(dev, buffer_type::psum);
-        memcpy(psum_addr, buf_result_acc, num_result_elements * sizeof(buf_result_acc[0]));
+        memset(buf_result_acc, 0xaa, num_result_elements * sizeof(buf_result_acc[0]));
+        memcpy(psum_addr, buf_result_acc, num_result_elements_aligned * sizeof(buf_result_acc[0]));
     }
 
     // start accelerator
@@ -371,7 +384,7 @@ public:
 
         // copy data back
         void* psum_addr = recacc_get_buffer(dev, buffer_type::psum);
-        memcpy(buf_result_acc, psum_addr, num_result_elements * sizeof(buf_result_acc[0]));
+        memcpy(buf_result_acc, psum_addr, num_result_elements_aligned * sizeof(buf_result_acc[0]));
 
         // deassert start bit, this resets the control logic and allows for starting the next iteration
         recacc_control_stop(dev);
@@ -477,6 +490,9 @@ private:
     size_t num_iact_elements;
     size_t num_wght_elements;
     size_t num_result_elements;
+    size_t num_iact_elements_aligned;
+    size_t num_wght_elements_aligned;
+    size_t num_result_elements_aligned;
 
     int8_t* buf_iact;
     int8_t* buf_wght;
