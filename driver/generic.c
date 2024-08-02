@@ -156,7 +156,7 @@ bool recacc_poll(const recacc_device* dev) {
 }
 
 #ifdef __linux__
-static bool _recacc_wait_linux(const recacc_device* dev) {
+static inline bool _recacc_wait_linux(const recacc_device* dev) {
     // TODO: implement with interrupts instead of polling
     time_t start = time(NULL);
     while (!recacc_poll(dev)) {
@@ -167,7 +167,7 @@ static bool _recacc_wait_linux(const recacc_device* dev) {
     return true;
 }
 #else
-static bool _recacc_wait_baremetal(const recacc_device* dev) {
+static inline bool _recacc_wait_baremetal(const recacc_device* dev) {
     // TODO: implement with interrupts instead of polling
     int timeout = 1000;
     while (timeout && !recacc_poll(dev)) {
@@ -182,8 +182,8 @@ static bool _recacc_wait_baremetal(const recacc_device* dev) {
 
 bool recacc_wait(const recacc_device* dev) {
     #ifdef __linux__
-    _recacc_wait_linux(dev);
+    return _recacc_wait_linux(dev);
     #else
-    _recacc_wait_baremetal(dev);
+    return _recacc_wait_baremetal(dev);
     #endif
  }

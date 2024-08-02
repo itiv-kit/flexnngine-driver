@@ -1,46 +1,64 @@
-// act = 3d tensor with batch size always 1
-template <typename Tin, typename Tout> void conv2d(
-    Tin* act, Tin* wght, Tin* bias, Tout* result,
-    int in_channels, int in_width, int in_height,
-    int k_count, int k_width, int k_height,
-    int stride_x, int stride_y, int padding_x, int padding_y)
-{
-    // convert values to output type to ensure calculations use output type width
-    Tout accumulator, act_value, wght_value;
-    int x, y;
-    int out_height, out_width;
+#pragma once
 
-    out_width = (in_width + 2 * padding_x - k_width) / stride_x + 1;
-    out_height = (in_height + 2 * padding_y - k_height) / stride_y + 1;
+#include "types.h"
+#include <cstddef>
+#include <string>
+#include <tuple>
 
-    for (int k_id = 0; k_id < k_count; k_id++) {
-    for (int oy = 0; oy < out_height; oy++) {
-    for (int ox = 0; ox < out_width; ox++) {
-        accumulator = 0.0f;
-        for (int ch = 0; ch < in_channels; ch++) {
-        for (int offset_y = 0; offset_y < k_height; offset_y++) {
-        for (int offset_x = 0; offset_x < k_width; offset_x++) {
-            x = (ox * stride_x) + offset_x - padding_x;
-            y = (oy * stride_y) + offset_y - padding_y;
-
-            if ((x < 0 || y < 0) || (x >= in_width || y >= in_height)) // padding case: here only zero padding
-                act_value = 0.0f;
-            else
-                act_value = act[(ch * in_height * in_width) + (y * in_width) + x];
-
-            wght_value = wght[(k_id * in_channels * k_height * k_width)
-                + (ch * k_height * k_width)
-                + (offset_y * k_width) + offset_x];
-
-            accumulator += act_value * wght_value;
-        }
-        }
-        }
-
-        if (bias != nullptr)
-            accumulator += bias[k_id];
-        result[(k_id * out_height * out_width) + (oy * out_width) + ox] = accumulator;
-    }
-    }
-    }
+extern "C" {
+    #include <driver.h>
 }
+
+// represents a 2D convolution operation with a set of parameters
+
+class Conv2D {
+public:
+    Conv2D();
+    Conv2D(unsigned image_size,
+        unsigned kernel_size,
+        unsigned input_channels,
+        unsigned output_channels);
+    ~Conv2D();
+
+    void set_image_size(unsigned w, unsigned h);
+    void set_kernel_size(unsigned w, unsigned h);
+    void set_channel_count(unsigned input_channels, unsigned output_channels);
+    void set_hwinfo(const recacc_hwinfo& hwinfo);
+    void set_recacc_device(recacc_device* dev);
+
+    std::tuple<unsigned, unsigned> get_image_size();
+    std::tuple<unsigned, unsigned> get_kernel_size();
+    std::tuple<unsigned, unsigned> get_channel_count();
+    std::string get_parameter_string();
+
+    void compute_accelerator_parameters();
+    void print_accelerator_parameters();
+
+    // void set_dryrun(bool enabled);
+    // void prepare_data(bool data_from_files, const std::string& files_path);
+    // void prepare_accelerator();
+    void copy_data_in(void* iact_buf, size_t iact_size, void* wght_buf, size_t wght_size);
+    void configure_accelerator();
+    void run_accelerator();
+    // void run_cpu();
+    bool wait_until_accelerator_done();
+    void copy_data_out(void* psum_buf, size_t length);
+    // void verify();
+    // void write_data(const std::string& output_path);
+
+    // void test_print_buffer();
+
+protected:
+    void ensure_hwinfo();
+
+    unsigned iact_w = 32;
+    unsigned iact_h = 32;
+    unsigned wght_w = 3;
+    unsigned wght_h = 3;
+    unsigned input_channels = 4;
+    unsigned output_channels = 3;
+
+    recacc_device* dev;
+    recacc_hwinfo hwinfo;
+    recacc_config cfg;
+};

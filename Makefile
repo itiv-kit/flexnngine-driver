@@ -1,5 +1,5 @@
-CFLAGS = -Wall -Wextra -std=c11
-CXXFLAGS = -Wall -Wextra -std=c++20
+CFLAGS = -Idriver -Wall -Wextra -std=c11
+CXXFLAGS = -Idriver -Wall -Wextra -std=c++20
 release: CFLAGS += -s -O3
 release: CXXFLAGS += -s -O3
 debug:   CFLAGS += -g -O1
@@ -8,6 +8,8 @@ LDFLAGS = -lm
 
 SRCS = $(wildcard driver/*.c)
 OBJS = $(filter-out driver/baremetal.o,$(SRCS:%.c=%.o))
+SRCS_CXX = $(wildcard lib/*.cpp)
+OBJS_CXX = $(SRCS_CXX:%.cpp=%.o)
 TARGET_SRCS_C = $(wildcard *.c)
 TARGET_SRCS_CXX = $(wildcard *.cpp)
 TARGETS_C = $(TARGET_SRCS_C:%.c=%)
@@ -24,7 +26,7 @@ debug: $(TARGETS)
 $(TARGETS_C): %: %.c $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-$(TARGETS_CXX): %: %.cpp $(OBJS)
+$(TARGETS_CXX): %: %.cpp $(OBJS) $(OBJS_CXX)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
 %.o: %.c
