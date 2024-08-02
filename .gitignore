@@ -1,0 +1,6 @@
+conv2d-testsuite
+dump-psum-buffer
+test-buffers
+test-conv2d
+test-regs
+**/*.o
