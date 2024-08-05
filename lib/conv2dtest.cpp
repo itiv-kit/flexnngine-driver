@@ -68,9 +68,11 @@ void Conv2DTest::ensure_hwinfo() {
 }
 
 void Conv2DTest::prepare_data(bool data_from_files, const string& files_path) {
-    cout << "preparing conv2d data with:" << endl;
-    cout << "  " << iact_w << "x" << iact_h << ", " << input_channels << " ch input activations" << endl;
-    cout << "  " << wght_w << "x" << wght_h << " kernels and " << output_channels << " output channels" << endl;
+    if (verbose > Verbosity::Errors) {
+        cout << "preparing conv2d data with:" << endl;
+        cout << "  " << iact_w << "x" << iact_h << ", " << input_channels << " ch input activations" << endl;
+        cout << "  " << wght_w << "x" << wght_h << " kernels and " << output_channels << " output channels" << endl;
+    }
 
     num_iact_elements = iact_w * iact_h * input_channels;
     num_iact_elements_aligned = make_multiple_of(8, num_iact_elements);
@@ -110,10 +112,11 @@ void Conv2DTest::prepare_data(bool data_from_files, const string& files_path) {
             cout << "warning: only " << n << " result words read, " << num_result_elements << " expected." << endl;
     }
 
-    cout << "using "
-        << num_iact_elements * sizeof(buf_iact[0]) << " bytes iact, "
-        << num_wght_elements * sizeof(buf_wght[0]) << " bytes wght, "
-        << num_result_elements * sizeof(buf_result_acc[0]) << " bytes psum" << endl;
+    if (verbose > Verbosity::Errors)
+        cout << "using "
+            << num_iact_elements * sizeof(buf_iact[0]) << " bytes iact, "
+            << num_wght_elements * sizeof(buf_wght[0]) << " bytes wght, "
+            << num_result_elements * sizeof(buf_result_acc[0]) << " bytes psum" << endl;
 
     ensure_hwinfo();
 
@@ -155,7 +158,8 @@ void Conv2DTest::prepare_accelerator() {
 
     configure_accelerator();
 
-    cout << "copying input data to accelerator" << endl;
+    if (verbose > Verbosity::Errors)
+        cout << "copying input data to accelerator" << endl;
     copy_data_in(buf_iact, num_iact_elements_aligned * sizeof(buf_iact[0]),
         buf_wght, num_wght_elements_aligned * sizeof(buf_wght[0]));
 

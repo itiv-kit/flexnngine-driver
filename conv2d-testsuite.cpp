@@ -37,6 +37,7 @@ bool run_test(recacc_device* dev, Conv2D& test) {
     Conv2DTest testrun(dev, test);
     cout << "Running test " << test.get_parameter_string() << endl;
 
+    testrun.set_verbose(Conv2DTest::Verbosity::Errors);
     testrun.prepare_data(false, string());
     testrun.prepare_accelerator();
     testrun.run_accelerator();
