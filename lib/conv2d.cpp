@@ -169,19 +169,19 @@ void Conv2D::print_accelerator_parameters() {
     cout << "  c0w0_last_c1    " << cfg.c0w0_last_c1 << endl;
 }
 
-void Conv2D::copy_data_in(void* iact_buf, size_t iact_size, void* wght_buf, size_t wght_size) {
+void Conv2D::copy_data_in(void* iact_buf, size_t iact_bytes, void* wght_buf, size_t wght_bytes) {
     void* iact_addr = recacc_get_buffer(dev, buffer_type::iact);
-    memcpy(iact_addr, iact_buf, iact_size);
+    memcpy(iact_addr, iact_buf, iact_bytes);
 
     void* wght_addr = recacc_get_buffer(dev, buffer_type::wght);
-    memcpy(wght_addr, wght_buf, wght_size);
+    memcpy(wght_addr, wght_buf, wght_bytes);
 
     ensure_hwinfo();
 
-    if (iact_size > hwinfo.spad_size_iact)
+    if (iact_bytes > hwinfo.spad_size_iact)
         throw runtime_error("iact spad memory too small!");
 
-    if (wght_size > hwinfo.spad_size_wght)
+    if (wght_bytes > hwinfo.spad_size_wght)
         throw runtime_error("wght spad memory too small!");
 }
 
@@ -227,7 +227,7 @@ bool Conv2D::wait_until_accelerator_done() {
     return true;
 }
 
-void Conv2D::copy_data_out(void* psum_buf, size_t length) {
+void Conv2D::copy_data_out(void* psum_buf, size_t psum_bytes) {
     // const size_t output_size = (iact_w - wght_w + 1) * (iact_h - wght_h + 1);
     // const size_t expected_bytes = output_size * output_channels * 2;
 
@@ -235,11 +235,11 @@ void Conv2D::copy_data_out(void* psum_buf, size_t length) {
     // if (max_size < length)
     //     length = max_size;
 
-    if (length > hwinfo.spad_size_psum)
+    if (psum_bytes > hwinfo.spad_size_psum)
         throw runtime_error("copy data out larger than scratchpad size");
 
     void* psum_addr = recacc_get_buffer(dev, buffer_type::psum);
-    memcpy(psum_buf, psum_addr, length);
+    memcpy(psum_buf, psum_addr, psum_bytes);
 
     // deassert start bit, this resets the control logic and allows for starting the next iteration
     recacc_control_stop(dev);

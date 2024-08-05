@@ -149,8 +149,8 @@ void Conv2DTest::prepare_accelerator() {
     configure_accelerator();
 
     cout << "copying input data to accelerator" << endl;
-    copy_data_in(buf_iact, num_iact_elements_aligned,
-        buf_wght, num_wght_elements_aligned);
+    copy_data_in(buf_iact, num_iact_elements_aligned * sizeof(buf_iact[0]),
+        buf_wght, num_wght_elements_aligned * sizeof(buf_wght[0]));
 
     // also clear the hardware result buffer to ease debugging
     void* psum_addr = recacc_get_buffer(dev, buffer_type::psum);
@@ -174,7 +174,7 @@ bool Conv2DTest::get_accelerator_results() {
     if (!success)
         return false;
 
-    copy_data_out(buf_result_acc, num_result_elements_aligned);
+    copy_data_out(buf_result_acc, num_result_elements_aligned * sizeof(buf_result_acc[0]));
 
     return true;
 }
