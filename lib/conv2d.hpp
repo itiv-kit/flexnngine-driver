@@ -34,19 +34,11 @@ public:
     void compute_accelerator_parameters();
     void print_accelerator_parameters();
 
-    // void set_dryrun(bool enabled);
-    // void prepare_data(bool data_from_files, const std::string& files_path);
-    // void prepare_accelerator();
     void copy_data_in(void* iact_buf, size_t iact_bytes, void* wght_buf, size_t wght_bytes);
     void configure_accelerator();
     void run_accelerator();
-    // void run_cpu();
     bool wait_until_accelerator_done();
     void copy_data_out(void* psum_buf, size_t psum_bytes);
-    // void verify();
-    // void write_data(const std::string& output_path);
-
-    // void test_print_buffer();
 
 protected:
     void ensure_hwinfo();
