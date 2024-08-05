@@ -22,7 +22,6 @@ int recacc_open(recacc_device* dev, const char* uio_name) {
         recacc_close(dev);
         return err;
     }
-    printf("Mapped region at %p\n", dev->mem);
 
     return 0;
 }

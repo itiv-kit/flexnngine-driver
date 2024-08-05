@@ -18,8 +18,11 @@ extern "C" {
 
 using namespace std;
 
-array<Conv2D, 1> tests = {
-    Conv2D(32, 3, 4, 3)
+array<Conv2D, 4> tests = {
+    Conv2D(32, 3, 4, 3),
+    Conv2D(32, 5, 4, 3),
+    Conv2D(16, 3, 8, 3),
+    Conv2D(16, 5, 8, 3)
 };
 
 void list_tests() {
@@ -119,8 +122,10 @@ int main(int argc, char** argv) {
     }
 
     cout << "Running tests..." << endl;
-    for (auto t : tests)
+    for (auto t : tests) {
         run_test(&dev, t);
+        recacc_reset(&dev);
+    }
 
     if (!dryrun)
         ret = recacc_close(&dev);
