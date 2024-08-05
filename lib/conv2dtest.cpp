@@ -179,53 +179,45 @@ bool Conv2DTest::get_accelerator_results() {
     return true;
 }
 
+// compares size words of input to reference
+// prints verbose output if verbose is true and uses the given buffer names on output
+bool Conv2DTest::_verify_buffers(int16_t* input, int16_t* reference, size_t size, bool verbose, const string& name_input, const string& name_reference) {
+    size_t incorrect;
+    size_t incorrect_offset = compare_buffers(input, reference, size, incorrect);
+
+    cout << "comparing " << size << " " << name_input << " values to " << name_reference << " reference... ";
+    if (incorrect > 0)
+        cout << incorrect << " values INCORRECT, first at " << incorrect_offset << endl;
+    else
+        cout << "CORRECT" << endl;
+
+    if (verbose && incorrect > 0) {
+        size_t display_offset = incorrect_offset;
+        display_offset -= display_offset % 16;
+        if (display_offset > 32)
+            display_offset -= 32;
+
+        cout << name_input << " result (128 words at " << display_offset << "):" << endl;
+        print_buffer<int16_t>(input, 128, display_offset, 8, incorrect_offset);
+        cout << name_reference << " result from file:" << endl;
+        print_buffer<int16_t>(reference, 128, display_offset, 8, incorrect_offset);
+    }
+
+    return incorrect > 0;
+}
+
 bool Conv2DTest::verify(bool verbose) {
-    if (buf_result_files) {
-        cout << "comparing " << num_result_elements << " cpu values to the file reference... ";
-        size_t incorrect;
-        size_t incorrect_offset = compare_buffers(buf_result_cpu, buf_result_files, num_result_elements, incorrect);
-        if (incorrect > 0)
-            cout << incorrect << " values INCORRECT, first at " << incorrect_offset << endl;
-        else
-            cout << "CORRECT" << endl;
+    bool success = true;
 
-        if (incorrect > 0) {
-            size_t display_offset = incorrect_offset;
-            display_offset -= display_offset % 16;
-            if (display_offset > 32)
-                display_offset -= 32;
-            cout << "CPU result (128 words at " << display_offset << "):" << endl;
-            print_buffer<int16_t>(buf_result_cpu, 128, display_offset, 8, incorrect_offset);
-            cout << "Reference result from file:" << endl;
-            print_buffer<int16_t>(buf_result_files, 128, display_offset, 8, incorrect_offset);
-        }
-    }
+    if (buf_result_files)
+        success = _verify_buffers(buf_result_cpu, buf_result_files, num_result_elements, verbose, "CPU", "file");
 
-    if (!dryrun) {
-        cout << "comparing " << num_result_elements << " output values... ";
-        size_t incorrect;
-        size_t incorrect_offset = compare_buffers(buf_result_acc, buf_result_cpu, num_result_elements, incorrect);
-        if (incorrect > 0)
-            cout << incorrect << " values INCORRECT, first at " << incorrect_offset << endl;
-        else
-            cout << "CORRECT" << endl;
-
-        if (incorrect > 0) {
-            size_t display_offset = incorrect_offset;
-            display_offset -= display_offset % 16;
-            if (display_offset > 32)
-                display_offset -= 32;
-            cout << "CPU result (128 words at " << display_offset << "):" << endl;
-            print_buffer<int16_t>(buf_result_cpu, 128, display_offset, 8, incorrect_offset);
-            cout << "ACC result:" << endl;
-            print_buffer<int16_t>(buf_result_acc, 128, display_offset, 8, incorrect_offset);
-            cout << "wght buffer:" << endl;
-            void* wght_addr = recacc_get_buffer(dev, buffer_type::wght);
-            print_buffer<int8_t>(wght_addr, 128, 0);
-        }
-    } else {
+    if (!dryrun)
+        success = _verify_buffers(buf_result_acc, buf_result_cpu, num_result_elements, verbose, "ACC", "CPU");
+    else
         cout << "Skipping CPU/ACC comparison in dryrun" << endl;
-    }
+
+    return success;
 }
 
 void Conv2DTest::write_data(const string& output_path) {
