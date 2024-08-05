@@ -39,12 +39,11 @@ bool run_test(recacc_device* dev, Conv2D& test) {
     testrun.run_accelerator();
     testrun.run_cpu();
 
-    cout << "conv2d done on cpu, waiting for accelerator" << endl;
     bool success = testrun.get_accelerator_results();
     if (!success)
         return false;
 
-    return testrun.verify(false);
+    return testrun.verify();
 }
 
 int main(int argc, char** argv) {

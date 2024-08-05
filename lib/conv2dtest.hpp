@@ -15,16 +15,20 @@ public:
     Conv2DTest(recacc_device* accelerator, Conv2D operation);
     ~Conv2DTest();
 
+    enum class Verbosity {Errors, Info, Debug};
+
     void set_dryrun(bool enabled);
+    void set_verbose(Verbosity level);
     void prepare_data(bool data_from_files, const std::string& files_path);
     void prepare_accelerator();
     void run_accelerator();
     void run_cpu();
     bool get_accelerator_results();
-    bool verify(bool verbose = true);
+    bool verify();
     void write_data(const std::string& output_path);
 
     void test_print_buffer();
+
 
 private:
     void ensure_hwinfo();
@@ -44,4 +48,5 @@ private:
     int16_t* buf_result_files;
 
     bool dryrun;
+    Verbosity verbose;
 };

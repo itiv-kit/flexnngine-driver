@@ -102,6 +102,7 @@ int main(int argc, char** argv) {
 
     Conv2DTest c2d(&dev);
     c2d.set_dryrun(dryrun);
+    c2d.set_verbose(Conv2DTest::Verbosity::Debug);
 
     cout << "preparing random test data" << endl;
     #ifdef __linux__

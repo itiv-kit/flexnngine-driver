@@ -29,6 +29,7 @@ Conv2DTest::Conv2DTest(recacc_device* accelerator, Conv2D operation)
     num_wght_elements_aligned = 0;
     num_result_elements_aligned = 0;
     dryrun = false;
+    verbose = Verbosity::Info;
     hwinfo.array_size_x = 0;
 }
 
@@ -38,6 +39,10 @@ Conv2DTest::~Conv2DTest() {
     if (buf_result_cpu) delete[] buf_result_cpu;
     if (buf_result_acc) delete[] buf_result_acc;
     if (buf_result_files) delete[] buf_result_files;
+}
+
+void Conv2DTest::set_verbose(Verbosity level) {
+    verbose = level;
 }
 
 void Conv2DTest::ensure_hwinfo() {
@@ -133,11 +138,13 @@ void Conv2DTest::run_cpu() {
 void Conv2DTest::prepare_accelerator() {
     ensure_hwinfo();
 
-    print_hwinfo(hwinfo);
+    if (verbose > Verbosity::Errors)
+        print_hwinfo(hwinfo);
 
     compute_accelerator_parameters();
 
-    print_accelerator_parameters();
+    if (verbose > Verbosity::Errors)
+        print_accelerator_parameters();
 
     // clear software result buffers
     memset(buf_result_acc, 0, num_result_elements_aligned * sizeof(buf_result_acc[0]));
@@ -206,14 +213,14 @@ bool Conv2DTest::_verify_buffers(int16_t* input, int16_t* reference, size_t size
     return incorrect > 0;
 }
 
-bool Conv2DTest::verify(bool verbose) {
+bool Conv2DTest::verify() {
     bool success = true;
 
     if (buf_result_files)
-        success = _verify_buffers(buf_result_cpu, buf_result_files, num_result_elements, verbose, "CPU", "file");
+        success = _verify_buffers(buf_result_cpu, buf_result_files, num_result_elements, verbose != Verbosity::Errors, "CPU", "file");
 
     if (!dryrun)
-        success = _verify_buffers(buf_result_acc, buf_result_cpu, num_result_elements, verbose, "ACC", "CPU");
+        success = _verify_buffers(buf_result_acc, buf_result_cpu, num_result_elements, verbose != Verbosity::Errors, "ACC", "CPU");
     else
         cout << "Skipping CPU/ACC comparison in dryrun" << endl;
 
