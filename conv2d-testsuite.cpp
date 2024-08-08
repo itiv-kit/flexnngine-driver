@@ -18,18 +18,33 @@ extern "C" {
 
 using namespace std;
 
-array<Conv2D, 4> tests = {
-    Conv2D(32, 3, 4, 3),
-    Conv2D(32, 5, 4, 3),
+// number of output channels currently depends on m0, number of spatially mapped kernels
+// on a 10x7 accelerator, three 3x3 kernels and two 5x5 kernels can be mapped on the Y axis, thus 3 / 2 channels
+array<Conv2D, 18> tests = {
+    Conv2D(16, 3, 4, 3),
+    Conv2D(16, 5, 4, 2),
     Conv2D(16, 3, 8, 3),
-    Conv2D(16, 5, 8, 3)
+    Conv2D(16, 5, 8, 2),
+    Conv2D(32, 3, 4, 3),
+    Conv2D(32, 5, 4, 2),
+    Conv2D(32, 3, 8, 3),
+    Conv2D(32, 5, 8, 2),
+    Conv2D(64, 3, 4, 3),
+    Conv2D(64, 5, 4, 2),
+    Conv2D(64, 3, 16, 3),
+    Conv2D(64, 5, 16, 2),
+    Conv2D(64, 3, 48, 3),
+    Conv2D(64, 5, 32, 2),
+    Conv2D(128, 3, 4, 3),
+    Conv2D(128, 5, 4, 2),
+    Conv2D(128, 3, 8, 3),
+    Conv2D(128, 5, 8, 2)
 };
 
 void list_tests() {
     int test_number = 0;
-    for (auto t : tests) {
+    for (auto t : tests)
         cout << "Test " << test_number++ << ": " << t.get_parameter_string() << endl;
-    }
 }
 
 // run one of the tests, return true on success
@@ -38,7 +53,12 @@ bool run_test(recacc_device* dev, Conv2D& test) {
     cout << "Running test " << test.get_parameter_string() << endl;
 
     testrun.set_verbose(Conv2DTest::Verbosity::Errors);
-    testrun.prepare_data(false, string());
+    try {
+        testrun.prepare_data(false, string());
+    } catch (const exception& e) {
+        cout << "SKIPPED due to exception: " << e.what() << endl;
+        return false;
+    }
     testrun.prepare_accelerator();
     testrun.run_accelerator();
     testrun.run_cpu();
