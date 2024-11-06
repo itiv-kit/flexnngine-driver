@@ -35,8 +35,9 @@ int main(int argc, char** argv) {
     string device_name(DEFAULT_DEVICE);
     string files_path;
     string output_path;
+    unsigned image_size = 32, kernel_size = 3, input_channels = 4, output_channels = 3;
 
-    while ((c = getopt (argc, argv, "hnd:p:o:")) != -1)
+    while ((c = getopt (argc, argv, "hnd:p:o:s:c:k:u:")) != -1)
         switch (c) {
             case 'h':
                 cout << "Usage:" << endl;
@@ -46,6 +47,10 @@ int main(int argc, char** argv) {
                 cout << "-p <path>: load data from path instead of random" << endl;
                 cout << "           path must contain _image.txt, _kernel.txt, _convolution.txt" << endl;
                 cout << "-o <path>: save output data to path (_output_acc.txt, _output_cpu.txt)" << endl;
+                cout << "-s 32: width & height of the input image" << endl;
+                cout << "-k 3: width & height of the kernels" << endl;
+                cout << "-c 4: number of input channels" << endl;
+                cout << "-u 3: number of output channels" << endl;
                 return 0;
                 break;
             case 'n':
@@ -59,6 +64,18 @@ int main(int argc, char** argv) {
                 break;
             case 'o':
                 output_path = string(optarg);
+                break;
+            case 's':
+                image_size = atoi(optarg);
+                break;
+            case 'k':
+                kernel_size = atoi(optarg);
+                break;
+            case 'c':
+                input_channels = atoi(optarg);
+                break;
+            case 'u':
+                output_channels = atoi(optarg);
                 break;
             case '?':
                 if (optopt == 'c')
@@ -103,6 +120,9 @@ int main(int argc, char** argv) {
     Conv2DTest c2d(&dev);
     c2d.set_dryrun(dryrun);
     c2d.set_verbose(Conv2DTest::Verbosity::Debug);
+    c2d.set_image_size(image_size, image_size);
+    c2d.set_kernel_size(kernel_size, kernel_size);
+    c2d.set_channel_count(input_channels, output_channels);
 
     cout << "preparing random test data" << endl;
     #ifdef __linux__
@@ -128,6 +148,10 @@ int main(int argc, char** argv) {
         dump_status_register(&dev);
         return 1;
     }
+
+    auto cycles = c2d.get_cycle_count();
+    float microseconds = 1.0 * cycles / 100000000 * 100000; // 100 MHz
+    cout << "conv2d took " << c2d.get_cycle_count() << " cycles on accelerator (" << microseconds << "us @100MHz)" << endl;
 
     cout << "comparing cpu and accelerator results" << endl;
     c2d.verify();
