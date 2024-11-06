@@ -36,4 +36,4 @@ $(TARGETS_CXX): %: %.cpp $(OBJS) $(OBJS_CXX)
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 clean:
-	rm -f $(OBJS) $(TARGETS)
+	rm -f $(OBJS) $(OBJS_CXX) $(TARGETS)
