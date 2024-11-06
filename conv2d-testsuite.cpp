@@ -8,6 +8,7 @@
 
 #include "lib/conv2d.hpp"
 #include "lib/conv2dtest.hpp"
+#include "lib/VariadicTable.h"
 #include "types.h"
 
 extern "C" {
@@ -41,14 +42,26 @@ array<Conv2D, 18> tests = {
     Conv2D(128, 5, 8, 2)
 };
 
+VariadicTable<int, int, int, int, int, string, float, float, float, float, float> vt({
+    "#", "HxW", "RxS", "i-ch", "o-ch", "status",
+    "cpu us", "copy-in us", "acc us", "copy-out us", "speedup"}, 9);
+
 void list_tests() {
     int test_number = 0;
     for (auto t : tests)
         cout << "Test " << test_number++ << ": " << t.get_parameter_string() << endl;
 }
 
+string format_unit(float value, const string& unit) {
+    ostringstream oss;
+    oss << value << unit;
+    return oss.str();
+}
+
 // run one of the tests, return true on success
 bool run_test(recacc_device* dev, Conv2D& test) {
+    static int test_number = 1;
+
     Conv2DTest testrun(dev, test);
     cout << "Running test " << test.get_parameter_string() << endl;
 
@@ -67,7 +80,32 @@ bool run_test(recacc_device* dev, Conv2D& test) {
     if (!success)
         return false;
 
-    return testrun.verify();
+    // cout << "   perf: "
+    //      << " cpu "      << testrun.duration_cpu.count() << "µs"
+    //      << " copy-in "  << testrun.duration_copy_in.count() << "µs"
+    //      << " acc "      << testrun.duration_acc.count() << "µs"
+    //      << " copy-out " << testrun.duration_copy_out.count() << "µs" << endl;
+
+    success = testrun.verify();
+
+    float speedup = testrun.duration_cpu / (testrun.duration_copy_in + testrun.duration_acc + testrun.duration_copy_out);
+
+    vt.addRow(
+        test_number,
+        get<0>(testrun.get_image_size()),
+        get<0>(testrun.get_kernel_size()),
+        get<0>(testrun.get_channel_count()),
+        get<1>(testrun.get_channel_count()),
+        success ? "SUCCESS" : "FAILED",
+        testrun.duration_cpu.count(),
+        testrun.duration_copy_in.count(),
+        testrun.duration_acc.count(),
+        testrun.duration_copy_out.count(),
+        speedup
+    );
+    test_number++;
+
+    return success;
 }
 
 int main(int argc, char** argv) {
@@ -142,11 +180,27 @@ int main(int argc, char** argv) {
         }
     }
 
+    vt.setColumnFormat({VariadicTableColumnFormat::FIXED,
+                        VariadicTableColumnFormat::FIXED,
+                        VariadicTableColumnFormat::FIXED,
+                        VariadicTableColumnFormat::FIXED,
+                        VariadicTableColumnFormat::FIXED,
+                        VariadicTableColumnFormat::AUTO,
+                        VariadicTableColumnFormat::FIXED,
+                        VariadicTableColumnFormat::FIXED,
+                        VariadicTableColumnFormat::FIXED,
+                        VariadicTableColumnFormat::FIXED,
+                        VariadicTableColumnFormat::FIXED});
+    vt.setColumnPrecision({0,0,0,0,0,0,3,3,3,3,2});
+
     cout << "Running tests..." << endl;
     for (auto t : tests) {
         run_test(&dev, t);
         recacc_reset(&dev);
     }
+
+    // print a nice result table
+    vt.print(cout);
 
     if (!dryrun)
         ret = recacc_close(&dev);
