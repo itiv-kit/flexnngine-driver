@@ -24,6 +24,7 @@ typedef struct {
     uint32_t c0_last_c1;
     uint32_t c0w0;
     uint32_t c0w0_last_c1;
+    uint32_t stride;
     uint32_t magic;
 } recacc_config;
 

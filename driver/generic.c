@@ -56,6 +56,9 @@ int recacc_config_read(const recacc_device* dev, recacc_config* cfg) {
     cfg->c0w0            = recacc_reg_read(dev, RECACC_REG_IDX_CONV_C0W0);
     cfg->c0w0_last_c1    = recacc_reg_read(dev, RECACC_REG_IDX_CONV_C0W0_LAST_C1);
     cfg->magic           = recacc_reg_read(dev, RECACC_REG_IDX_MAGIC);
+
+    if (dev->hw_revision >= 4) // stride will probably be supported in rev 4
+        cfg->stride      = recacc_reg_read(dev, RECACC_REG_IDX_CONV_STRIDE);
     return 0;
 }
 
@@ -77,6 +80,10 @@ int recacc_config_write(const recacc_device* dev, const recacc_config* cfg) {
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_C0_LAST_C1, cfg->c0_last_c1);
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_C0W0, cfg->c0w0);
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_C0W0_LAST_C1, cfg->c0w0_last_c1);
+
+    if (dev->hw_revision >= 3)
+        recacc_reg_write(dev, RECACC_REG_IDX_CONV_STRIDE, cfg->stride);
+
     // RECACC_REG_IDX_MAGIC can't be written
     return 0;
 }

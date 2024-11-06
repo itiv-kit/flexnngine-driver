@@ -23,6 +23,8 @@ int recacc_open(recacc_device* dev, const char* uio_name) {
         return err;
     }
 
+    dev->hw_revision = 0;
+
     return 0;
 }
 

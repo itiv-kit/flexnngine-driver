@@ -30,6 +30,7 @@ public:
     std::tuple<unsigned, unsigned> get_kernel_size();
     std::tuple<unsigned, unsigned> get_channel_count();
     std::string get_parameter_string();
+    unsigned get_cycle_count();
 
     void compute_accelerator_parameters();
     void print_accelerator_parameters();
@@ -49,6 +50,7 @@ protected:
     unsigned wght_h = 3;
     unsigned input_channels = 4;
     unsigned output_channels = 3;
+    unsigned cycles = 0;
 
     recacc_device* dev;
     recacc_hwinfo hwinfo;

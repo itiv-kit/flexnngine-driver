@@ -75,6 +75,10 @@ void Conv2D::compute_accelerator_parameters() {
     cfg.wght_dimension = kernel_size;
     cfg.input_channels = input_channels;
     cfg.output_channels = output_channels;
+
+    // currently only stride = 1 is implemented in software
+    cfg.stride = 1;
+
     int line_length_wght_usable = hwinfo.line_length_wght - 1;
 
     // m0 is how many kernels are mapped at once (vertically)
@@ -206,6 +210,10 @@ string Conv2D::get_parameter_string() {
     return oss.str();
 }
 
+unsigned Conv2D::get_cycle_count() {
+    return cycles;
+}
+
 void Conv2D::run_accelerator() {
     recacc_control_start(dev);
 }
@@ -218,6 +226,9 @@ bool Conv2D::wait_until_accelerator_done() {
         cerr << "ERROR: timeout waiting for hardware, probably stuck!" << endl;
         return false;
     }
+
+    // read cycle count and store for later use before it gets invalidated
+    cycles = recacc_reg_read(dev, RECACC_REG_IDX_CYCLE_COUNTER);
 
     // read diagnostic registers and validate hardware status after processing
     uint32_t psum_overflows = recacc_reg_read(dev, RECACC_REG_IDX_PSUM_OVERFLOWS);
