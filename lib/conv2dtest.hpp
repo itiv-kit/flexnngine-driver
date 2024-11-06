@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <chrono>
 
 #include "conv2d.hpp"
 
@@ -29,6 +30,10 @@ public:
 
     void test_print_buffer();
 
+    std::chrono::duration<float, std::micro> duration_cpu;
+    std::chrono::duration<float, std::micro> duration_acc;
+    std::chrono::duration<float, std::micro> duration_copy_in;
+    std::chrono::duration<float, std::micro> duration_copy_out;
 
 private:
     void ensure_hwinfo();

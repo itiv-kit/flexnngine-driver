@@ -1,5 +1,6 @@
 #include "conv2dtest.hpp"
 
+#include <chrono>
 #include <iostream>
 #include <cstring>
 #include <cassert>
@@ -9,6 +10,12 @@
 #include "utils.hpp"
 
 using namespace std;
+
+// using timer = std::chrono::high_resolution_clock;
+using timer = std::chrono::steady_clock;
+using std::chrono::microseconds;
+
+const unsigned hw_freq_mhz = 100;
 
 // Create a test instance with default parameters for demonstration
 Conv2DTest::Conv2DTest(recacc_device* accelerator) : Conv2DTest(accelerator, Conv2D(32, 3, 4, 3)) {}
@@ -132,10 +139,15 @@ void Conv2DTest::prepare_data(bool data_from_files, const string& files_path) {
 
 // calculate convolution on cpu as reference
 void Conv2DTest::run_cpu() {
+    auto t1 = timer::now();
+
     conv2d_cpu<int8_t, int16_t>(buf_iact, buf_wght, nullptr, buf_result_cpu,
         input_channels, iact_w, iact_h,
         output_channels, wght_w, wght_h,
         1, 1, 0, 0);
+
+    auto t2 = timer::now();
+    duration_cpu = t2 - t1;
 }
 
 void Conv2DTest::prepare_accelerator() {
@@ -160,8 +172,14 @@ void Conv2DTest::prepare_accelerator() {
 
     if (verbose > Verbosity::Errors)
         cout << "copying input data to accelerator" << endl;
+
+    auto t1 = timer::now();
+
     copy_data_in(buf_iact, num_iact_elements_aligned * sizeof(buf_iact[0]),
         buf_wght, num_wght_elements_aligned * sizeof(buf_wght[0]));
+
+    auto t2 = timer::now();
+    duration_copy_in = t2 - t1;
 
     // also clear the hardware result buffer to ease debugging
     void* psum_addr = recacc_get_buffer(dev, buffer_type::psum);
@@ -185,7 +203,15 @@ bool Conv2DTest::get_accelerator_results() {
     if (!success)
         return false;
 
+    auto t1 = timer::now();
+
     copy_data_out(buf_result_acc, num_result_elements_aligned * sizeof(buf_result_acc[0]));
+
+    auto t2 = timer::now();
+    duration_copy_out = t2 - t1;
+
+    auto cycles = get_cycle_count();
+    duration_acc = 1.0us * cycles / hw_freq_mhz;
 
     return true;
 }
