@@ -216,9 +216,9 @@ bool Conv2DTest::get_accelerator_results() {
     return true;
 }
 
-// compares size words of input to reference
+// compares size words of input to reference, returns number of incorrect words
 // prints verbose output if verbose is true and uses the given buffer names on output
-bool Conv2DTest::_verify_buffers(int16_t* input, int16_t* reference, size_t size, bool verbose, const string& name_input, const string& name_reference) {
+size_t Conv2DTest::_verify_buffers(int16_t* input, int16_t* reference, size_t size, bool verbose, const string& name_input, const string& name_reference) {
     size_t incorrect;
     size_t incorrect_offset = compare_buffers(input, reference, size, incorrect);
 
@@ -240,17 +240,17 @@ bool Conv2DTest::_verify_buffers(int16_t* input, int16_t* reference, size_t size
         print_buffer<int16_t>(reference, 128, display_offset, 8, incorrect_offset);
     }
 
-    return incorrect > 0;
+    return incorrect;
 }
 
 bool Conv2DTest::verify() {
     bool success = true;
 
     if (buf_result_files)
-        success = _verify_buffers(buf_result_cpu, buf_result_files, num_result_elements, verbose != Verbosity::Errors, "CPU", "file");
+        success = _verify_buffers(buf_result_cpu, buf_result_files, num_result_elements, verbose != Verbosity::Errors, "CPU", "file") == 0;
 
     if (!dryrun)
-        success = _verify_buffers(buf_result_acc, buf_result_cpu, num_result_elements, verbose != Verbosity::Errors, "ACC", "CPU");
+        success = _verify_buffers(buf_result_acc, buf_result_cpu, num_result_elements, verbose != Verbosity::Errors, "ACC", "CPU") == 0;
     else
         cout << "Skipping CPU/ACC comparison in dryrun" << endl;
 

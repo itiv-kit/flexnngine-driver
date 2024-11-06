@@ -37,7 +37,7 @@ public:
 
 private:
     void ensure_hwinfo();
-    static bool _verify_buffers(int16_t* input, int16_t* reference, size_t size, bool verbose, const std::string& name_input, const std::string& name_reference);
+    static size_t _verify_buffers(int16_t* input, int16_t* reference, size_t size, bool verbose, const std::string& name_input, const std::string& name_reference);
 
     size_t num_iact_elements;
     size_t num_wght_elements;
