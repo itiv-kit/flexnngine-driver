@@ -153,6 +153,9 @@ void Conv2D::compute_accelerator_parameters() {
         cout << "c0w0_last_c1 = " << cfg.c0w0_last_c1 << endl;
         throw runtime_error("BUG: mismatch of calculated accelerator parameters");
     }
+
+    if (cfg.m0 != output_channels)
+        cout << "WARNING: " << output_channels << " output channels requested, but have to map " << cfg.m0 << " output channels." << endl;
 }
 
 void Conv2D::print_accelerator_parameters() {
