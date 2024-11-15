@@ -40,6 +40,9 @@ typedef struct {
     uint8_t  data_width_bits_iact;
     uint8_t  data_width_bits_wght;
     uint8_t  data_width_bits_psum;
+    uint8_t  max_output_channels;
+    bool     trs_dataflow;
+    bool     bias_requant_available;
 } recacc_hwinfo;
 
 typedef struct {
@@ -55,6 +58,22 @@ union recacc_status_reg {
     recacc_status decoded;
 };
 
+typedef struct {
+    bool reset:1;
+    bool start:1;
+    bool requantize:1;
+    uint8_t activation_mode:3;
+} __attribute__((packed)) recacc_control;
+
+union recacc_control_reg {
+    uint32_t raw;
+    recacc_control decoded;
+};
+
 enum buffer_type {
     iact, wght, psum
+};
+
+enum activation_mode {
+    act_none, act_relu
 };

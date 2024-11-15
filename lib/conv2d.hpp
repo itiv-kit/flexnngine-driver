@@ -17,12 +17,15 @@ public:
     Conv2D(unsigned image_size,
         unsigned kernel_size,
         unsigned input_channels,
-        unsigned output_channels);
+        unsigned output_channels,
+        bool requantize = false);
     ~Conv2D();
 
     void set_image_size(unsigned w, unsigned h);
     void set_kernel_size(unsigned w, unsigned h);
     void set_channel_count(unsigned input_channels, unsigned output_channels);
+    void set_activation_mode(enum activation_mode mode);
+    virtual void set_requantize(bool enabled);
     void set_hwinfo(const recacc_hwinfo& hwinfo);
     void set_recacc_device(recacc_device* dev);
 
@@ -36,6 +39,7 @@ public:
     void print_accelerator_parameters();
 
     void copy_data_in(void* iact_buf, size_t iact_bytes, void* wght_buf, size_t wght_bytes);
+    void set_postproc_data(uint32_t* bias, float* factors, float* zeropoints);
     void configure_accelerator();
     void run_accelerator();
     bool wait_until_accelerator_done();
@@ -51,6 +55,8 @@ protected:
     unsigned input_channels = 4;
     unsigned output_channels = 3;
     unsigned cycles = 0;
+    bool requantize = false;
+    enum activation_mode act_mode = act_none;
 
     recacc_device* dev;
     recacc_hwinfo hwinfo;

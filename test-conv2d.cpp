@@ -1,3 +1,5 @@
+#include <cstddef>
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <stdexcept>
@@ -6,6 +8,7 @@
 #include <cstdint>
 
 #include "lib/conv2dtest.hpp"
+#include "types.h"
 
 extern "C" {
     #include "driver/driver.h"
@@ -36,8 +39,11 @@ int main(int argc, char** argv) {
     string files_path;
     string output_path;
     unsigned image_size = 32, kernel_size = 3, input_channels = 4, output_channels = 3;
+    enum activation_mode act_mode = act_none;
+    bool zero_bias = false;
+    bool requantize = false;
 
-    while ((c = getopt (argc, argv, "hnd:p:o:s:c:k:u:")) != -1)
+    while ((c = getopt (argc, argv, "hnd:p:o:s:c:k:u:Bra:")) != -1)
         switch (c) {
             case 'h':
                 cout << "Usage:" << endl;
@@ -51,6 +57,9 @@ int main(int argc, char** argv) {
                 cout << "-k 3: width & height of the kernels" << endl;
                 cout << "-c 4: number of input channels" << endl;
                 cout << "-u 3: number of output channels" << endl;
+                cout << "-B: use a zero bias for all channels" << endl;
+                cout << "-r: enable requantization" << endl;
+                cout << "-a relu: enable activation (available: relu)" << endl;
                 return 0;
                 break;
             case 'n':
@@ -76,6 +85,20 @@ int main(int argc, char** argv) {
                 break;
             case 'u':
                 output_channels = atoi(optarg);
+                break;
+            case 'B':
+                zero_bias = true;
+                break;
+            case 'r':
+                requantize = true;
+                break;
+            case 'a':
+                if (strcmp(optarg, "relu"))
+                    act_mode = act_relu;
+                else {
+                    cerr << "Unknown activation mode " << string(optarg) << endl;
+                    return 1;
+                }
                 break;
             case '?':
                 if (optopt == 'c')
@@ -123,6 +146,8 @@ int main(int argc, char** argv) {
     c2d.set_image_size(image_size, image_size);
     c2d.set_kernel_size(kernel_size, kernel_size);
     c2d.set_channel_count(input_channels, output_channels);
+    c2d.set_activation_mode(act_mode);
+    c2d.set_requantize(requantize);
 
     cout << "preparing random test data" << endl;
     #ifdef __linux__
@@ -130,6 +155,12 @@ int main(int argc, char** argv) {
     #else
     c2d.prepare_data(false, string());
     #endif
+
+    if (zero_bias) {
+        uint32_t bias[output_channels];
+        memset(bias, 0, output_channels * sizeof(bias[0]));
+        c2d.set_postproc_data(bias, NULL, NULL);
+    }
 
     cout << "calculating accelerator parameters" << endl;
     c2d.prepare_accelerator();
@@ -149,9 +180,11 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    auto cycles = c2d.get_cycle_count();
-    float microseconds = 1.0 * cycles / 100000000 * 100000; // 100 MHz
-    cout << "conv2d took " << c2d.get_cycle_count() << " cycles on accelerator (" << microseconds << "us @100MHz)" << endl;
+    if (!dryrun) {
+        auto cycles = c2d.get_cycle_count();
+        float microseconds = 1.0 * cycles / 100000000 * 100000; // 100 MHz
+        cout << "conv2d took " << c2d.get_cycle_count() << " cycles on accelerator (" << microseconds << "us @100MHz)" << endl;
+    }
 
     cout << "comparing cpu and accelerator results" << endl;
     c2d.verify();

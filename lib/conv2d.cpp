@@ -1,10 +1,12 @@
 #include "conv2d.hpp"
 
+#include <cstdint>
 #include <iostream>
 #include <cassert>
 #include <cmath>
 #include <cstring>
 #include <sstream>
+#include <stdexcept>
 
 using namespace std;
 
@@ -18,10 +20,13 @@ Conv2D::~Conv2D() {}
 Conv2D::Conv2D(unsigned image_size,
         unsigned kernel_size,
         unsigned input_channels,
-        unsigned output_channels) : Conv2D() {
+        unsigned output_channels,
+        bool requantize) : Conv2D() {
     set_image_size(image_size, image_size);
     set_kernel_size(kernel_size, kernel_size);
     set_channel_count(input_channels, output_channels);
+    set_requantize(requantize);
+    set_activation_mode(act_none);
 }
 
 void Conv2D::set_image_size(unsigned w, unsigned h) {
@@ -37,6 +42,14 @@ void Conv2D::set_kernel_size(unsigned w, unsigned h) {
 void Conv2D::set_channel_count(unsigned input_channels, unsigned output_channels) {
     this->input_channels = input_channels;
     this->output_channels = output_channels;
+}
+
+void Conv2D::set_activation_mode(enum activation_mode mode) {
+    act_mode = mode;
+}
+
+void Conv2D::set_requantize(bool enabled) {
+    requantize = enabled;
 }
 
 void Conv2D::set_hwinfo(const recacc_hwinfo& hwinfo) {
@@ -192,6 +205,36 @@ void Conv2D::copy_data_in(void* iact_buf, size_t iact_bytes, void* wght_buf, siz
         throw runtime_error("wght spad memory too small!");
 }
 
+void Conv2D::set_postproc_data(uint32_t* bias, float* factors, float* zeropoints) {
+    if (!requantize && (factors != nullptr || zeropoints != nullptr))
+        throw runtime_error("setting postproc data for factors/zeropoints but requantization is disabled");
+
+    ensure_hwinfo();
+
+    cout << "writing " << hwinfo.max_output_channels << " bias/scale regs" << endl;
+
+    for (size_t n = 0; n < hwinfo.max_output_channels; n++) {
+        unsigned idx = RECACC_REG_IDX_BIAS_REQUANT_BASE + n;
+
+        uint32_t value = 0;
+        if (bias != nullptr && n < output_channels)
+            value = bias[n];
+        recacc_reg_write(dev, idx, value);
+
+        idx += hwinfo.max_output_channels;
+        value = 0;
+        if (factors != nullptr && n < output_channels)
+            value = reinterpret_cast<uint32_t*>(factors)[n];
+        recacc_reg_write(dev, idx, value);
+
+        idx += hwinfo.max_output_channels;
+        value = 0;
+        if (zeropoints != nullptr && n < output_channels)
+            value = reinterpret_cast<uint32_t*>(zeropoints)[n];
+        recacc_reg_write(dev, idx, value);
+    }
+}
+
 void Conv2D::configure_accelerator() {
     recacc_config_write(dev, &cfg);
 }
@@ -218,7 +261,7 @@ unsigned Conv2D::get_cycle_count() {
 }
 
 void Conv2D::run_accelerator() {
-    recacc_control_start(dev);
+    recacc_control_start(dev, requantize, act_mode);
 }
 
 // wait for accelerator to finish and copy data back, returns true on success

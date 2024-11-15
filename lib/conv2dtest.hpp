@@ -45,12 +45,16 @@ private:
     size_t num_iact_elements_aligned;
     size_t num_wght_elements_aligned;
     size_t num_result_elements_aligned;
+    int    output_size;
 
-    int8_t* buf_iact;
-    int8_t* buf_wght;
+    int8_t*  buf_iact;
+    int8_t*  buf_wght;
     int16_t* buf_result_cpu;
     int16_t* buf_result_acc;
     int16_t* buf_result_files;
+    int16_t* buf_bias;
+    float*   buf_scale;
+    float*   buf_zeropoint;
 
     bool dryrun;
     Verbosity verbose;

@@ -1,6 +1,10 @@
 // act = 3d tensor with batch size always 1
+#include <algorithm>
+#include <cmath>
+#include <limits>
+
 template <typename Tin, typename Tout> void conv2d_cpu(
-    Tin* act, Tin* wght, Tin* bias, Tout* result,
+    Tin* act, Tin* wght, Tout* bias, Tout* result,
     int in_channels, int in_width, int in_height,
     int k_count, int k_width, int k_height,
     int stride_x, int stride_y, int padding_x, int padding_y)
@@ -42,5 +46,26 @@ template <typename Tin, typename Tout> void conv2d_cpu(
         result[(k_id * out_height * out_width) + (oy * out_width) + ox] = accumulator;
     }
     }
+    }
+}
+
+template <typename Tin, typename Tout> void requantize_cpu(
+    Tin* psum, Tout* result, float* factors, float* zeropts,
+    int channels, int image_size)
+{
+    for (int channel = 0; channel < channels; channel++) {
+        const float scale = factors[channel];
+        const float zeropt = zeropts[channel];
+        const int chan_offset = image_size * channel;
+        for (int i = 0; i < image_size; i++) {
+            float tmp = psum[chan_offset + i];
+            tmp = tmp * scale + zeropt;
+            std::numeric_limits<Tout> limits;
+            result[chan_offset + i] = std::clamp(
+                static_cast<Tin>(round(tmp)),
+                static_cast<Tin>(limits.min()),
+                static_cast<Tin>(limits.max())
+            );
+        }
     }
 }

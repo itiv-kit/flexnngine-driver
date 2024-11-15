@@ -44,7 +44,7 @@ bool recacc_wait(const recacc_device* dev);
 recacc_status recacc_get_status(const recacc_device* dev);
 
 // start the accelerator by writing to the control register
-void recacc_control_start(const recacc_device* dev);
+void recacc_control_start(const recacc_device* dev, bool requantize, enum activation_mode mode);
 
 // clear the start bit by writing to the control register
 void recacc_control_stop(const recacc_device* dev);

@@ -1,5 +1,6 @@
 #include "generic.h"
 #include "defs.h"
+#include "types.h"
 #include <stdbool.h>
 
 #define __USE_MISC
@@ -27,6 +28,17 @@ bool recacc_verify(recacc_device* dev, bool print_info) {
         else
             printf("Accelerator NOT verified, invalid magic register contents 0x%08x\n", magic_reg);
     }
+
+    if (dev->hw_revision < RECACC_MIN_HW_REV) {
+        fprintf(stderr, "Hardware revision unsupported anymore, too old: %d\n", dev->hw_revision);
+        okay = false;
+    }
+
+    if (dev->hw_revision > RECACC_MAX_HW_REV) {
+        fprintf(stderr, "Hardware revision unsupported yet, too recent: %d\n", dev->hw_revision);
+        okay = false;
+    }
+
     return okay;
 }
 
@@ -81,7 +93,7 @@ int recacc_config_write(const recacc_device* dev, const recacc_config* cfg) {
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_C0W0, cfg->c0w0);
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_C0W0_LAST_C1, cfg->c0w0_last_c1);
 
-    if (dev->hw_revision >= 3)
+    if (dev->hw_revision >= 4)
         recacc_reg_write(dev, RECACC_REG_IDX_CONV_STRIDE, cfg->stride);
 
     // RECACC_REG_IDX_MAGIC can't be written
@@ -106,10 +118,15 @@ recacc_status recacc_get_status(const recacc_device* dev) {
     return status.decoded;
 }
 
-void recacc_control_start(const recacc_device* dev) {
-    uint32_t ctrl = recacc_reg_read(dev, RECACC_REG_IDX_CONTROL);
-    ctrl |= (1 << RECACC_BIT_IDX_CONTROL_START);
-    recacc_reg_write(dev, RECACC_REG_IDX_CONTROL, ctrl);
+void recacc_control_start(const recacc_device* dev, bool requantize, enum activation_mode mode) {
+    union recacc_control_reg control;
+    control.raw = recacc_reg_read(dev, RECACC_REG_IDX_CONTROL);
+    control.decoded.reset = 0;
+    control.decoded.start = 1;
+    control.decoded.requantize = requantize ? 1 : 0;
+    control.decoded.activation_mode = (uint8_t) mode;
+    printf("control write 0x%08x\n", control.raw);
+    recacc_reg_write(dev, RECACC_REG_IDX_CONTROL, control.raw);
 }
 
 void recacc_control_stop(const recacc_device* dev) {
@@ -136,11 +153,15 @@ void recacc_get_hwinfo(const recacc_device* dev, recacc_hwinfo* hwinfo) {
     hwinfo->data_width_bits_wght = tmp >> 8 & 0xff;
     hwinfo->data_width_bits_psum = tmp >> 16 & 0xff;
 
-    tmp = recacc_reg_read(dev, RECACC_REG_IDX_ADDR_WIDTH_1);
-    hwinfo->spad_size_iact = powl(2, tmp & 0xffff);
-    hwinfo->spad_size_wght = powl(2, tmp >> 16 & 0xffff);
+    tmp = recacc_reg_read(dev, RECACC_REG_IDX_ADDR_WIDTH);
+    hwinfo->spad_size_iact = powl(2, tmp >>  0 & 0xff);
+    hwinfo->spad_size_wght = powl(2, tmp >>  8 & 0xff);
+    hwinfo->spad_size_psum = powl(2, tmp >> 16 & 0xff);
 
-    hwinfo->spad_size_psum = powl(2, recacc_reg_read(dev, RECACC_REG_IDX_ADDR_WIDTH_2));
+    tmp = recacc_reg_read(dev, RECACC_REG_IDX_CAPABILITIES);
+    hwinfo->max_output_channels = tmp & 0xff;
+    hwinfo->trs_dataflow = tmp & (1 << RECACC_BIT_IDX_CAP_DATAFLOW);
+    hwinfo->bias_requant_available = tmp & (1 << RECACC_BIT_IDX_CAP_BIAS_REQUANT);
 }
 
 void* recacc_get_buffer(const recacc_device* dev, enum buffer_type type) {

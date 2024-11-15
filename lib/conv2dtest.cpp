@@ -46,6 +46,9 @@ Conv2DTest::~Conv2DTest() {
     if (buf_result_cpu) delete[] buf_result_cpu;
     if (buf_result_acc) delete[] buf_result_acc;
     if (buf_result_files) delete[] buf_result_files;
+    if (buf_bias) delete[] buf_bias;
+    if (buf_scale) delete[] buf_scale;
+    if (buf_zeropoint) delete[] buf_zeropoint;
 }
 
 void Conv2DTest::set_verbose(Verbosity level) {
@@ -107,7 +110,23 @@ void Conv2DTest::prepare_data(bool data_from_files, const string& files_path) {
         generate_random_data<int8_t>(buf_wght, num_wght_elements);
     memset(buf_wght + num_wght_elements, 0, num_wght_elements_aligned - num_wght_elements);
 
-    const int output_size = (iact_w - wght_w + 1) * (iact_h - wght_h + 1); // no padding
+    buf_bias = new int16_t[output_channels];
+    generate_random_data<int16_t>(buf_bias, output_channels); // bias is still % 256 even though its type is larger
+
+    if (requantize) {
+        buf_scale = new float[output_channels];
+        buf_zeropoint = new float[output_channels];
+        for (int i = 0; i < output_channels; i++) {
+            // TODO: provide dynamic scale/zeropoint values instead of fixed ones
+            buf_scale[i] = 0.0025;
+            buf_zeropoint[i] = -5;
+        }
+    } else {
+        buf_scale = nullptr;
+        buf_zeropoint = nullptr;
+    }
+
+    output_size = (iact_w - wght_w + 1) * (iact_h - wght_h + 1); // no padding
     num_result_elements = output_size * output_channels;
     num_result_elements_aligned = make_multiple_of(8, num_result_elements);
     buf_result_cpu = new int16_t[num_result_elements];
@@ -145,6 +164,11 @@ void Conv2DTest::run_cpu() {
         input_channels, iact_w, iact_h,
         output_channels, wght_w, wght_h,
         1, 1, 0, 0);
+
+    if (requantize)
+        requantize_cpu<int16_t, int8_t>(buf_result_cpu, reinterpret_cast<int8_t*>(buf_result_cpu),
+            buf_scale, buf_zeropoint,
+            output_channels, output_size);
 
     auto t2 = timer::now();
     duration_cpu = t2 - t1;
