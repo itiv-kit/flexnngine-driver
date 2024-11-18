@@ -1,10 +1,11 @@
 #include "generic.h"
 #include "defs.h"
 #include "types.h"
-#include <stdbool.h>
 
 #define __USE_MISC
 
+#include <assert.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
@@ -125,7 +126,6 @@ void recacc_control_start(const recacc_device* dev, bool requantize, enum activa
     control.decoded.start = 1;
     control.decoded.requantize = requantize ? 1 : 0;
     control.decoded.activation_mode = (uint8_t) mode;
-    printf("control write 0x%08x\n", control.raw);
     recacc_reg_write(dev, RECACC_REG_IDX_CONTROL, control.raw);
 }
 
@@ -162,6 +162,8 @@ void recacc_get_hwinfo(const recacc_device* dev, recacc_hwinfo* hwinfo) {
     hwinfo->max_output_channels = tmp & 0xff;
     hwinfo->trs_dataflow = tmp & (1 << RECACC_BIT_IDX_CAP_DATAFLOW);
     hwinfo->bias_requant_available = tmp & (1 << RECACC_BIT_IDX_CAP_BIAS_REQUANT);
+
+    assert(hwinfo->max_output_channels > 0);
 }
 
 void* recacc_get_buffer(const recacc_device* dev, enum buffer_type type) {

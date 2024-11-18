@@ -79,7 +79,8 @@ static auto make_multiple_of(auto div, auto value) {
 void print_hwinfo(const recacc_hwinfo& hwinfo) {
     std::cout << "Accelerator configuration:" << std::endl;
     std::cout << " array size: " << hwinfo.array_size_y
-              << "x" << hwinfo.array_size_x << std::endl;
+              << "x" << hwinfo.array_size_x
+              << ", max och " << static_cast<int>(hwinfo.max_output_channels) << std::endl;
     std::cout << " data width:"
               << " iact " << static_cast<int>(hwinfo.data_width_bits_iact)
               << " wght " << static_cast<int>(hwinfo.data_width_bits_wght)
