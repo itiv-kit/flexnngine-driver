@@ -1,11 +1,8 @@
-#include <cstddef>
 #include <cstring>
 #include <iomanip>
 #include <iostream>
-#include <stdexcept>
 #include <string>
 #include <unistd.h>
-#include <cstdint>
 
 #include "lib/conv2dtest.hpp"
 #include "types.h"
@@ -148,6 +145,7 @@ int main(int argc, char** argv) {
     c2d.set_channel_count(input_channels, output_channels);
     c2d.set_activation_mode(act_mode);
     c2d.set_requantize(requantize);
+    c2d.set_bias(!zero_bias);
 
     cout << "preparing random test data" << endl;
     #ifdef __linux__
@@ -155,12 +153,6 @@ int main(int argc, char** argv) {
     #else
     c2d.prepare_data(false, string());
     #endif
-
-    if (zero_bias) {
-        uint32_t bias[output_channels];
-        memset(bias, 0, output_channels * sizeof(bias[0]));
-        c2d.set_postproc_data(bias, NULL, NULL);
-    }
 
     cout << "calculating accelerator parameters" << endl;
     c2d.prepare_accelerator();
@@ -177,6 +169,7 @@ int main(int argc, char** argv) {
     bool success = c2d.get_accelerator_results();
     if (!success && !dryrun) {
         dump_status_register(&dev);
+        recacc_control_stop(&dev);
         return 1;
     }
 

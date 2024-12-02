@@ -72,6 +72,7 @@ int recacc_config_read(const recacc_device* dev, recacc_config* cfg) {
 
     if (dev->hw_revision >= 4) // stride will probably be supported in rev 4
         cfg->stride      = recacc_reg_read(dev, RECACC_REG_IDX_CONV_STRIDE);
+
     return 0;
 }
 

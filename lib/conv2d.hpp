@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <string>
 #include <tuple>
+#include <vector>
 
 extern "C" {
     #include <driver.h>
@@ -29,17 +30,18 @@ public:
     void set_hwinfo(const recacc_hwinfo& hwinfo);
     void set_recacc_device(recacc_device* dev);
 
-    std::tuple<unsigned, unsigned> get_image_size();
-    std::tuple<unsigned, unsigned> get_kernel_size();
-    std::tuple<unsigned, unsigned> get_channel_count();
-    std::string get_parameter_string();
-    unsigned get_cycle_count();
+    std::tuple<unsigned, unsigned> get_image_size() const;
+    std::tuple<unsigned, unsigned> get_kernel_size() const;
+    std::tuple<unsigned, unsigned> get_channel_count() const;
+    std::string get_parameter_string() const;
+    unsigned get_cycle_count() const;
+    bool get_requantize() const;
 
     void compute_accelerator_parameters();
     void print_accelerator_parameters();
 
     void copy_data_in(void* iact_buf, size_t iact_bytes, void* wght_buf, size_t wght_bytes);
-    void set_postproc_data(uint32_t* bias, float* factors, float* zeropoints);
+    void set_postproc_data(const std::vector<int16_t>& bias, const std::vector<float>& factors, const std::vector<float>& zeropoints);
     void configure_accelerator();
     void run_accelerator();
     bool wait_until_accelerator_done();

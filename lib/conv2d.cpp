@@ -60,16 +60,20 @@ void Conv2D::set_recacc_device(recacc_device* dev) {
     this->dev = dev;
 }
 
-std::tuple<unsigned, unsigned> Conv2D::get_image_size() {
+std::tuple<unsigned, unsigned> Conv2D::get_image_size() const {
     return {iact_w, iact_h};
 }
 
-std::tuple<unsigned, unsigned> Conv2D::get_kernel_size() {
+std::tuple<unsigned, unsigned> Conv2D::get_kernel_size() const {
     return {wght_w, wght_h};
 }
 
-std::tuple<unsigned, unsigned> Conv2D::get_channel_count() {
+std::tuple<unsigned, unsigned> Conv2D::get_channel_count() const {
     return {input_channels, output_channels};
+}
+
+bool Conv2D::get_requantize() const {
+    return requantize;
 }
 
 void Conv2D::compute_accelerator_parameters() {
@@ -190,12 +194,6 @@ void Conv2D::print_accelerator_parameters() {
 }
 
 void Conv2D::copy_data_in(void* iact_buf, size_t iact_bytes, void* wght_buf, size_t wght_bytes) {
-    void* iact_addr = recacc_get_buffer(dev, buffer_type::iact);
-    memcpy(iact_addr, iact_buf, iact_bytes);
-
-    void* wght_addr = recacc_get_buffer(dev, buffer_type::wght);
-    memcpy(wght_addr, wght_buf, wght_bytes);
-
     ensure_hwinfo();
 
     if (iact_bytes > hwinfo.spad_size_iact)
@@ -203,35 +201,42 @@ void Conv2D::copy_data_in(void* iact_buf, size_t iact_bytes, void* wght_buf, siz
 
     if (wght_bytes > hwinfo.spad_size_wght)
         throw runtime_error("wght spad memory too small!");
+
+    void* iact_addr = recacc_get_buffer(dev, buffer_type::iact);
+    memcpy(iact_addr, iact_buf, iact_bytes);
+
+    void* wght_addr = recacc_get_buffer(dev, buffer_type::wght);
+    memcpy(wght_addr, wght_buf, wght_bytes);
 }
 
-void Conv2D::set_postproc_data(uint32_t* bias, float* factors, float* zeropoints) {
-    if (!requantize && (factors != nullptr || zeropoints != nullptr))
-        throw runtime_error("setting postproc data for factors/zeropoints but requantization is disabled");
-
+void Conv2D::set_postproc_data(const vector<int16_t>& bias, const vector<float>& factors, const vector<float>& zeropoints) {
     ensure_hwinfo();
 
-    cout << "writing " << hwinfo.max_output_channels << " bias/scale regs" << endl;
+    // cout << "writing " << static_cast<unsigned>(hwinfo.max_output_channels) << " bias/scale regs" << endl;
 
+    // write to bias birst, then factors, then zeropoints continuously to potentially merge writes on AXI
     for (size_t n = 0; n < hwinfo.max_output_channels; n++) {
-        unsigned idx = RECACC_REG_IDX_BIAS_REQUANT_BASE + n;
-
+        const unsigned idx = RECACC_REG_IDX_BIAS_REQUANT_BASE + n;
         uint32_t value = 0;
-        if (bias != nullptr && n < output_channels)
+        if (n < bias.size())
             value = bias[n];
         recacc_reg_write(dev, idx, value);
+    }
 
-        idx += hwinfo.max_output_channels;
-        value = 0;
-        if (factors != nullptr && n < output_channels)
-            value = reinterpret_cast<uint32_t*>(factors)[n];
-        recacc_reg_write(dev, idx, value);
+    for (size_t n = 0; n < hwinfo.max_output_channels; n++) {
+        const unsigned idx = RECACC_REG_IDX_BIAS_REQUANT_BASE + hwinfo.max_output_channels + n;
+        float value = 0.0;
+        if (n < factors.size())
+            value = factors[n];
+        recacc_reg_write(dev, idx, *reinterpret_cast<uint32_t*>(&value));
+    }
 
-        idx += hwinfo.max_output_channels;
-        value = 0;
-        if (zeropoints != nullptr && n < output_channels)
-            value = reinterpret_cast<uint32_t*>(zeropoints)[n];
-        recacc_reg_write(dev, idx, value);
+    for (size_t n = 0; n < hwinfo.max_output_channels; n++) {
+        const unsigned idx = RECACC_REG_IDX_BIAS_REQUANT_BASE + 2 * hwinfo.max_output_channels + n;
+        float value = 0.0;
+        if (n < zeropoints.size())
+            value = zeropoints[n];
+        recacc_reg_write(dev, idx, *reinterpret_cast<uint32_t*>(&value));
     }
 }
 
@@ -247,16 +252,20 @@ void Conv2D::ensure_hwinfo() {
     assert(hwinfo.array_size_x != 0);
 }
 
-string Conv2D::get_parameter_string() {
+string Conv2D::get_parameter_string() const {
     ostringstream oss;
     oss << iact_w << "x" << iact_h << ", ";
     oss << wght_w << "x" << wght_h << ", ";
     oss << input_channels << " input channels, ";
-    oss << output_channels << " output channels";
+    oss << output_channels << " output channels, ";
+    if (requantize)
+        oss << "requantize on";
+    else
+        oss << "requantize off";
     return oss.str();
 }
 
-unsigned Conv2D::get_cycle_count() {
+unsigned Conv2D::get_cycle_count() const {
     return cycles;
 }
 

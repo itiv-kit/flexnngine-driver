@@ -1,9 +1,7 @@
 #include <iostream>
 #include <sstream>
-// #include <stdexcept>
 #include <string>
 #include <unistd.h>
-// #include <cstdint>
 #include <array>
 
 #include "lib/conv2d.hpp"
@@ -21,7 +19,7 @@ using namespace std;
 
 // number of output channels currently depends on m0, number of spatially mapped kernels
 // on a 10x7 accelerator, three 3x3 kernels and two 5x5 kernels can be mapped on the Y axis, thus 3 / 2 channels
-array<Conv2D, 18> tests = {
+array<Conv2D, 36> tests = {
     Conv2D(16, 3, 4, 3),
     Conv2D(16, 5, 4, 2),
     Conv2D(16, 3, 8, 3),
@@ -39,11 +37,30 @@ array<Conv2D, 18> tests = {
     Conv2D(128, 3, 4, 3),
     Conv2D(128, 5, 4, 2),
     Conv2D(128, 3, 8, 3),
-    Conv2D(128, 5, 8, 2)
+    Conv2D(128, 5, 8, 2),
+    // run the same convolutions with requantize enabled
+    Conv2D(16, 3, 4, 3, true),
+    Conv2D(16, 5, 4, 2, true),
+    Conv2D(16, 3, 8, 3, true),
+    Conv2D(16, 5, 8, 2, true),
+    Conv2D(32, 3, 4, 3, true),
+    Conv2D(32, 5, 4, 2, true),
+    Conv2D(32, 3, 8, 3, true),
+    Conv2D(32, 5, 8, 2, true),
+    Conv2D(64, 3, 4, 3, true),
+    Conv2D(64, 5, 4, 2, true),
+    Conv2D(64, 3, 16, 3, true),
+    Conv2D(64, 5, 16, 2, true),
+    Conv2D(64, 3, 48, 3, true),
+    Conv2D(64, 5, 32, 2, true),
+    Conv2D(128, 3, 4, 3, true),
+    Conv2D(128, 5, 4, 2, true),
+    Conv2D(128, 3, 8, 3, true),
+    Conv2D(128, 5, 8, 2, true)
 };
 
-VariadicTable<int, int, int, int, int, string, float, float, float, float, float> vt({
-    "#", "HxW", "RxS", "i-ch", "o-ch", "status",
+VariadicTable<int, int, int, int, int, string, string, float, float, float, float, float> vt({
+    "#", "HxW", "RxS", "i-ch", "o-ch", "requant", "status",
     "cpu us", "copy-in us", "acc us", "copy-out us", "speedup"}, 9);
 
 void list_tests() {
@@ -96,6 +113,7 @@ bool run_test(recacc_device* dev, Conv2D& test) {
         get<0>(testrun.get_kernel_size()),
         get<0>(testrun.get_channel_count()),
         get<1>(testrun.get_channel_count()),
+        testrun.get_requantize() ? "yes" : "no",
         success ? "SUCCESS" : "FAILED",
         testrun.duration_cpu.count(),
         testrun.duration_copy_in.count(),
@@ -186,12 +204,13 @@ int main(int argc, char** argv) {
                         VariadicTableColumnFormat::FIXED,
                         VariadicTableColumnFormat::FIXED,
                         VariadicTableColumnFormat::AUTO,
+                        VariadicTableColumnFormat::AUTO,
                         VariadicTableColumnFormat::FIXED,
                         VariadicTableColumnFormat::FIXED,
                         VariadicTableColumnFormat::FIXED,
                         VariadicTableColumnFormat::FIXED,
                         VariadicTableColumnFormat::FIXED});
-    vt.setColumnPrecision({0,0,0,0,0,0,3,3,3,3,2});
+    vt.setColumnPrecision({0,0,0,0,0,0,0,3,3,3,3,2});
 
     cout << "Running tests..." << endl;
     for (auto t : tests) {

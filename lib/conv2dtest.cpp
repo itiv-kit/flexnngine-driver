@@ -1,6 +1,7 @@
 #include "conv2dtest.hpp"
 
 #include <chrono>
+#include <cstdint>
 #include <iostream>
 #include <cstring>
 #include <cassert>
@@ -46,9 +47,6 @@ Conv2DTest::~Conv2DTest() {
     if (buf_result_cpu) delete[] buf_result_cpu;
     if (buf_result_acc) delete[] buf_result_acc;
     if (buf_result_files) delete[] buf_result_files;
-    if (buf_bias) delete[] buf_bias;
-    if (buf_scale) delete[] buf_scale;
-    if (buf_zeropoint) delete[] buf_zeropoint;
 }
 
 void Conv2DTest::set_verbose(Verbosity level) {
@@ -110,27 +108,36 @@ void Conv2DTest::prepare_data(bool data_from_files, const string& files_path) {
         generate_random_data<int8_t>(buf_wght, num_wght_elements);
     memset(buf_wght + num_wght_elements, 0, num_wght_elements_aligned - num_wght_elements);
 
-    buf_bias = new int16_t[output_channels];
-    generate_random_data<int16_t>(buf_bias, output_channels); // bias is still % 256 even though its type is larger
+    ensure_hwinfo();
 
+    buf_bias.resize(output_channels);
+    if (bias && hwinfo.bias_requant_available)
+        generate_random_data<int16_t>(buf_bias.data(), output_channels); // bias is still % 256 even though its type is larger
+    else
+        fill(buf_bias.begin(), buf_bias.end(), 0);
+
+    buf_scale.resize(output_channels);
+    buf_zeropoint.resize(output_channels);
     if (requantize) {
-        buf_scale = new float[output_channels];
-        buf_zeropoint = new float[output_channels];
-        for (int i = 0; i < output_channels; i++) {
-            // TODO: provide dynamic scale/zeropoint values instead of fixed ones
-            buf_scale[i] = 0.0025;
-            buf_zeropoint[i] = -5;
-        }
+        // TODO: provide dynamic scale/zeropoint values instead of fixed ones
+        fill(buf_scale.begin(), buf_scale.end(), 0.0025);
+        fill(buf_zeropoint.begin(), buf_zeropoint.end(), -5);
+
+        if (verbose > Verbosity::Errors)
+            cout << "  requantizing output data of ch0 with scale " << buf_scale[0] << ", zeropoint " << buf_zeropoint[0] << endl;
     } else {
-        buf_scale = nullptr;
-        buf_zeropoint = nullptr;
+        fill(buf_scale.begin(), buf_scale.end(), 1.0);
+        fill(buf_zeropoint.begin(), buf_zeropoint.end(), 0.0);
     }
 
     output_size = (iact_w - wght_w + 1) * (iact_h - wght_h + 1); // no padding
     num_result_elements = output_size * output_channels;
     num_result_elements_aligned = make_multiple_of(8, num_result_elements);
-    buf_result_cpu = new int16_t[num_result_elements];
-    buf_result_acc = new int16_t[num_result_elements_aligned];
+    alloc_bytes_acc = requantize ? num_result_elements_aligned : num_result_elements_aligned * 2;
+    buf_result_cpu = new int8_t[num_result_elements * 2]; // cpu always needs a full-psum buffer (first conv2d, then requantize if enabled)
+    buf_result_acc = new int8_t[alloc_bytes_acc];
+    // setup helper pointer to access psums when requantize is disabled
+    buf_result_acc_psums = reinterpret_cast<int16_t*>(buf_result_acc);
     if (data_from_files) {
         buf_result_files = new int16_t[num_result_elements];
         size_t n = read_text_data<int16_t>(buf_result_files, num_result_elements, files_path + "/_convolution_stack.txt");
@@ -144,15 +151,13 @@ void Conv2DTest::prepare_data(bool data_from_files, const string& files_path) {
             << num_wght_elements * sizeof(buf_wght[0]) << " bytes wght, "
             << num_result_elements * sizeof(buf_result_acc[0]) << " bytes psum" << endl;
 
-    ensure_hwinfo();
-
     if (num_iact_elements * sizeof(buf_iact[0]) > hwinfo.spad_size_iact)
         throw runtime_error("iact spad memory too small!");
 
     if (num_wght_elements * sizeof(buf_wght[0]) > hwinfo.spad_size_wght)
         throw runtime_error("wght spad memory too small!");
 
-    if (num_result_elements * sizeof(buf_result_acc[0]) > hwinfo.spad_size_psum)
+    if (alloc_bytes_acc > hwinfo.spad_size_psum)
         throw runtime_error("psum spad memory too small!");
 }
 
@@ -160,14 +165,14 @@ void Conv2DTest::prepare_data(bool data_from_files, const string& files_path) {
 void Conv2DTest::run_cpu() {
     auto t1 = timer::now();
 
-    conv2d_cpu<int8_t, int16_t>(buf_iact, buf_wght, nullptr, buf_result_cpu,
+    conv2d_cpu<int8_t, int16_t>(buf_iact, buf_wght, buf_bias.data(), reinterpret_cast<int16_t*>(buf_result_cpu),
         input_channels, iact_w, iact_h,
         output_channels, wght_w, wght_h,
         1, 1, 0, 0);
 
     if (requantize)
-        requantize_cpu<int16_t, int8_t>(buf_result_cpu, reinterpret_cast<int8_t*>(buf_result_cpu),
-            buf_scale, buf_zeropoint,
+        requantize_cpu<int16_t, int8_t>(reinterpret_cast<int16_t*>(buf_result_cpu), buf_result_cpu,
+            buf_scale.data(), buf_zeropoint.data(),
             output_channels, output_size);
 
     auto t2 = timer::now();
@@ -193,6 +198,8 @@ void Conv2DTest::prepare_accelerator() {
         return;
 
     configure_accelerator();
+
+    set_postproc_data(buf_bias, buf_scale, buf_zeropoint);
 
     if (verbose > Verbosity::Errors)
         cout << "copying input data to accelerator" << endl;
@@ -229,7 +236,7 @@ bool Conv2DTest::get_accelerator_results() {
 
     auto t1 = timer::now();
 
-    copy_data_out(buf_result_acc, num_result_elements_aligned * sizeof(buf_result_acc[0]));
+    copy_data_out(buf_result_acc, alloc_bytes_acc);
 
     auto t2 = timer::now();
     duration_copy_out = t2 - t1;
@@ -242,17 +249,32 @@ bool Conv2DTest::get_accelerator_results() {
 
 // compares size words of input to reference, returns number of incorrect words
 // prints verbose output if verbose is true and uses the given buffer names on output
-size_t Conv2DTest::_verify_buffers(int16_t* input, int16_t* reference, size_t size, bool verbose, const string& name_input, const string& name_reference) {
-    size_t incorrect;
-    size_t incorrect_offset = compare_buffers(input, reference, size, incorrect);
+size_t Conv2DTest::_verify_buffers(int8_t* input, int8_t* reference, const string& name_input, const string& name_reference) {
+    const size_t size = num_result_elements;
+
+    size_t incorrect, deviations, incorrect_offset;
+    size_t deviations_count[3] = { 0 };
+    int acceptable_delta = 0;
+    if (requantize) {
+        acceptable_delta = 3;
+        incorrect_offset = compare_buffers<int8_t>(input, reference, size, acceptable_delta, incorrect, deviations, deviations_count);
+    } else
+        incorrect_offset = compare_buffers<int16_t>(reinterpret_cast<int16_t*>(input), reinterpret_cast<int16_t*>(reference), size, acceptable_delta, incorrect, deviations, nullptr);
 
     cout << "comparing " << size << " " << name_input << " values to " << name_reference << " reference... ";
     if (incorrect > 0)
-        cout << incorrect << " values INCORRECT, first at " << incorrect_offset << endl;
+        cout << incorrect << " values INCORRECT, first at " << incorrect_offset;
     else
-        cout << "CORRECT" << endl;
+        cout << "CORRECT";
 
-    if (verbose && incorrect > 0) {
+    if (verbose != Verbosity::Errors && acceptable_delta > 0) {
+        cout << ", " << deviations << " deviations of <= " << acceptable_delta << endl;
+        for (int i = 0; i < 3; i++)
+            cout << "  - " << deviations_count[i] << " deviations of " << i + 1 << endl;
+    } else
+        cout << endl;
+
+    if (verbose != Verbosity::Errors && incorrect > 0) {
         size_t display_offset = incorrect_offset;
         display_offset -= display_offset % 16;
         if (display_offset > 32)
@@ -271,10 +293,10 @@ bool Conv2DTest::verify() {
     bool success = true;
 
     if (buf_result_files)
-        success = _verify_buffers(buf_result_cpu, buf_result_files, num_result_elements, verbose != Verbosity::Errors, "CPU", "file") == 0;
+        success = _verify_buffers(buf_result_cpu, reinterpret_cast<int8_t*>(buf_result_files), "CPU", "file") == 0;
 
     if (!dryrun)
-        success = _verify_buffers(buf_result_acc, buf_result_cpu, num_result_elements, verbose != Verbosity::Errors, "ACC", "CPU") == 0;
+        success = _verify_buffers(buf_result_acc, buf_result_cpu, "ACC", "CPU") == 0;
     else
         cout << "Skipping CPU/ACC comparison in dryrun" << endl;
 
@@ -282,21 +304,39 @@ bool Conv2DTest::verify() {
 }
 
 void Conv2DTest::write_data(const string& output_path) {
-    size_t written = write_text_data<int16_t>(
-        buf_result_cpu,
-        num_result_elements,
-        iact_w - wght_w + 1,
-        output_path + "/_output_cpu.txt");
-    if (written != num_result_elements)
-        cerr << "wrote only " << written << " elements to _output_cpu.txt" << endl;
+    if (requantize) {
+        size_t written = write_text_data<int8_t>(
+            buf_result_cpu,
+            num_result_elements,
+            iact_w - wght_w + 1,
+            output_path + "/_output_cpu.txt");
+        if (written != num_result_elements)
+            cerr << "wrote only " << written << " elements to _output_cpu.txt" << endl;
 
-    written = write_text_data<int16_t>(
-        buf_result_acc,
-        num_result_elements,
-        iact_w - wght_w + 1,
-        output_path + "/_output_acc.txt");
-    if (written != num_result_elements)
-        cerr << "wrote only " << written << " elements to _output_acc.txt" << endl;
+        written = write_text_data<int8_t>(
+            buf_result_acc,
+            num_result_elements,
+            iact_w - wght_w + 1,
+            output_path + "/_output_acc.txt");
+        if (written != num_result_elements)
+            cerr << "wrote only " << written << " elements to _output_acc.txt" << endl;
+    } else {
+        size_t written = write_text_data<int16_t>(
+            reinterpret_cast<int16_t*>(buf_result_cpu),
+            num_result_elements,
+            iact_w - wght_w + 1,
+            output_path + "/_output_cpu.txt");
+        if (written != num_result_elements)
+            cerr << "wrote only " << written << " elements to _output_cpu.txt" << endl;
+
+        written = write_text_data<int16_t>(
+            buf_result_acc_psums,
+            num_result_elements,
+            iact_w - wght_w + 1,
+            output_path + "/_output_acc.txt");
+        if (written != num_result_elements)
+            cerr << "wrote only " << written << " elements to _output_acc.txt" << endl;
+    }
 }
 
 void Conv2DTest::set_dryrun(bool enabled) {
@@ -317,4 +357,8 @@ void Conv2DTest::test_print_buffer() {
     print_buffer<int8_t>(buf, 16, 16, 8, 8);
     print_buffer<int16_t>(buf, 8,  8, 8, 8);
     print_buffer<int32_t>(buf, 4,  4, 8, 8);
+}
+
+void Conv2DTest::set_bias(bool enabled) {
+    bias = enabled;
 }

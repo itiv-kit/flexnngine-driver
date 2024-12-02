@@ -57,15 +57,24 @@ template<typename T> size_t write_text_data(T* buffer, size_t size, size_t strid
     return i;
 }
 
-size_t compare_buffers(int16_t* buf_a, int16_t* buf_b, size_t buf_size, size_t& incorrect_cnt) {
+template<typename T> size_t compare_buffers(T* buf_a, T* buf_b, size_t buf_size, T acceptable_delta, size_t& incorrect_cnt, size_t& slightly_off_count, size_t* slightly_off_counts) {
     size_t incorrect_offset = ~0LU;
-    incorrect_cnt = 0;
-    for (size_t n = 0; n < buf_size; n++)
-        if (buf_a[n] != buf_b[n]) {
-            if (incorrect_offset == ~0LU)
-                incorrect_offset = n;
-            incorrect_cnt++;
+    incorrect_cnt = slightly_off_count = 0;
+    for (size_t n = 0; n < buf_size; n++) {
+        T delta = abs(buf_a[n] - buf_b[n]);
+        if (delta > 0) {
+            if (delta > acceptable_delta) {
+                std::cerr << "incorrect at " << n << " values " << buf_a[n] << " | " << buf_b[n] << " delta " << delta << std::endl;
+                incorrect_cnt++;
+                if (incorrect_offset == ~0LU)
+                    incorrect_offset = n;
+            } else {
+                slightly_off_count++;
+                if (slightly_off_counts != nullptr)
+                    slightly_off_counts[delta - 1]++;
+            }
         }
+    }
     return incorrect_offset;
 }
 
@@ -79,8 +88,7 @@ static auto make_multiple_of(auto div, auto value) {
 void print_hwinfo(const recacc_hwinfo& hwinfo) {
     std::cout << "Accelerator configuration:" << std::endl;
     std::cout << " array size: " << hwinfo.array_size_y
-              << "x" << hwinfo.array_size_x
-              << ", max och " << static_cast<int>(hwinfo.max_output_channels) << std::endl;
+              << "x" << hwinfo.array_size_x << std::endl;
     std::cout << " data width:"
               << " iact " << static_cast<int>(hwinfo.data_width_bits_iact)
               << " wght " << static_cast<int>(hwinfo.data_width_bits_wght)
@@ -93,4 +101,7 @@ void print_hwinfo(const recacc_hwinfo& hwinfo) {
     std::cout << " iact " << hwinfo.spad_size_iact
               << " wght " << hwinfo.spad_size_wght
               << " psum " << hwinfo.spad_size_psum << std::endl;
+    std::cout << " trs " << hwinfo.trs_dataflow
+              << " postproc " << hwinfo.bias_requant_available
+              << " max och " << static_cast<int>(hwinfo.max_output_channels) << std::endl;
 }

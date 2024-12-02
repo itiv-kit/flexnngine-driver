@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <chrono>
+#include <vector>
 
 #include "conv2d.hpp"
 
@@ -20,6 +21,7 @@ public:
 
     void set_dryrun(bool enabled);
     void set_verbose(Verbosity level);
+    void set_bias(bool enabled);
     void prepare_data(bool data_from_files, const std::string& files_path);
     void prepare_accelerator();
     void run_accelerator();
@@ -37,7 +39,7 @@ public:
 
 private:
     void ensure_hwinfo();
-    static size_t _verify_buffers(int16_t* input, int16_t* reference, size_t size, bool verbose, const std::string& name_input, const std::string& name_reference);
+    size_t _verify_buffers(int8_t* input, int8_t* reference, const std::string& name_input, const std::string& name_reference);
 
     size_t num_iact_elements;
     size_t num_wght_elements;
@@ -45,17 +47,21 @@ private:
     size_t num_iact_elements_aligned;
     size_t num_wght_elements_aligned;
     size_t num_result_elements_aligned;
+    size_t alloc_bytes_acc;
     int    output_size;
 
     int8_t*  buf_iact;
     int8_t*  buf_wght;
-    int16_t* buf_result_cpu;
-    int16_t* buf_result_acc;
+    int8_t* buf_result_cpu;
+    int8_t* buf_result_acc;
+    int16_t* buf_result_acc_psums;
     int16_t* buf_result_files;
-    int16_t* buf_bias;
-    float*   buf_scale;
-    float*   buf_zeropoint;
 
+    std::vector<int16_t> buf_bias;
+    std::vector<float>   buf_scale;
+    std::vector<float>   buf_zeropoint;
+
+    bool bias;
     bool dryrun;
     Verbosity verbose;
 };
