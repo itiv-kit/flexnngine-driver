@@ -103,13 +103,13 @@ int recacc_config_write(const recacc_device* dev, const recacc_config* cfg) {
 }
 
 uint32_t recacc_reg_read(const recacc_device* dev, int regidx) {
-    uint32_t *ptr = (uint32_t*)(dev->mem + RECACC_REG_ADDR(regidx));
+    volatile uint32_t *ptr = (volatile uint32_t*)(dev->mem + RECACC_REG_ADDR(regidx));
     // printf("recacc_reg_read reg %d off %d ptr %p\n", regidx, RECACC_BYTE_OFFSET(regidx), ptr);
     return *ptr;
 }
 
 void recacc_reg_write(const recacc_device* dev, int regidx, uint32_t value) {
-    uint32_t *ptr = (uint32_t*)(dev->mem + RECACC_REG_ADDR(regidx));
+    volatile uint32_t *ptr = (volatile uint32_t*)(dev->mem + RECACC_REG_ADDR(regidx));
     // printf("recacc_reg_write reg %d off %d ptr %p val 0x%08x\n", regidx, RECACC_BYTE_OFFSET(regidx), ptr, value);
     *ptr = value;
 }
