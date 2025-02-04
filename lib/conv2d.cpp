@@ -77,6 +77,8 @@ bool Conv2D::get_requantize() const {
 }
 
 void Conv2D::compute_accelerator_parameters() {
+    ensure_hwinfo();
+
     assert(iact_w > 0);
     assert(wght_w > 0);
     assert(input_channels > 0);
@@ -270,6 +272,16 @@ unsigned Conv2D::get_cycle_count() const {
 }
 
 void Conv2D::run_accelerator() {
+    ensure_hwinfo();
+
+    if (!hwinfo.bias_requant_available) {
+        if (requantize)
+            throw runtime_error("requantize requested but no postproc support in hardware");
+
+        if (act_mode != act_none)
+            throw runtime_error("activation requested but no postproc support in hardware");
+    }
+
     recacc_control_start(dev, requantize, act_mode);
 }
 

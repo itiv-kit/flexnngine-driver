@@ -113,8 +113,11 @@ void Conv2DTest::prepare_data(bool data_from_files, const string& files_path) {
     buf_bias.resize(output_channels);
     if (bias && hwinfo.bias_requant_available)
         generate_random_data<int16_t>(buf_bias.data(), output_channels); // bias is still % 256 even though its type is larger
-    else
+    else {
+        if (bias)
+            std::cout << "warning: non-zero bias requested but no postproc support in hardware, using zero bias" << endl;
         fill(buf_bias.begin(), buf_bias.end(), 0);
+    }
 
     buf_scale.resize(output_channels);
     buf_zeropoint.resize(output_channels);
