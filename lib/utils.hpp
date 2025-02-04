@@ -29,7 +29,11 @@ template<typename T> void print_buffer(void* data, size_t words, size_t offset =
         putchar('\n');
 }
 
+#ifdef __linux__
 static std::mt19937 mtrnd(std::chrono::system_clock::now().time_since_epoch().count());
+#else
+static std::mt19937 mtrnd(0);
+#endif
 
 template <typename T> void generate_random_data(T* ptr, size_t n) {
     for (auto i = 0u; i < n; i++)
