@@ -7,7 +7,7 @@
 #define RECACC_MEM_MAP_SIZE    0xA0000 // covers all mapped areas
 
 #define RECACC_MAGIC "ACC"
-#define RECACC_MIN_HW_REV 2
+#define RECACC_MIN_HW_REV 3
 #define RECACC_MAX_HW_REV 3
 
 #define RECACC_BYTE_OFFSET(idx) (idx*4)
@@ -42,6 +42,13 @@
 #define RECACC_REG_IDX_CAPABILITIES      30
 #define RECACC_REG_IDX_MAGIC             31
 #define RECACC_REG_IDX_BIAS_REQUANT_BASE 32
+
+// DSE registers only present in this model, not in the actual HW:
+#define RECACC_REG_MODEL_EXTRA_REGS_BASE 1021
+#define RECACC_REG_IDX_IACT_FIFO_SIZE    1021
+#define RECACC_REG_IDX_WGHT_FIFO_SIZE    1022
+#define RECACC_REG_IDX_PSUM_FIFO_SIZE    1023
+#define RECACC_REG_IDX_CLK_SP_FACTOR     1024
 
 #define RECACC_BIT_IDX_CONTROL_RESET   0
 #define RECACC_BIT_IDX_CONTROL_START   1
