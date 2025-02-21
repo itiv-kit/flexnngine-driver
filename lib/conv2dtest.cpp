@@ -166,7 +166,9 @@ void Conv2DTest::prepare_data(bool data_from_files, const string& files_path) {
 
 // calculate convolution on cpu as reference
 void Conv2DTest::run_cpu() {
+    #ifdef __linux__
     auto t1 = timer::now();
+    #endif
 
     conv2d_cpu<int8_t, int16_t>(buf_iact, buf_wght, buf_bias.data(), reinterpret_cast<int16_t*>(buf_result_cpu),
         input_channels, iact_w, iact_h,
@@ -178,8 +180,10 @@ void Conv2DTest::run_cpu() {
             buf_scale.data(), buf_zeropoint.data(),
             output_channels, output_size);
 
+    #ifdef __linux__
     auto t2 = timer::now();
     duration_cpu = t2 - t1;
+    #endif
 }
 
 void Conv2DTest::prepare_accelerator() {
@@ -207,13 +211,17 @@ void Conv2DTest::prepare_accelerator() {
     if (verbose > Verbosity::Errors)
         cout << "copying input data to accelerator" << endl;
 
+    #ifdef __linux__
     auto t1 = timer::now();
+    #endif
 
     copy_data_in(buf_iact, num_iact_elements_aligned * sizeof(buf_iact[0]),
         buf_wght, num_wght_elements_aligned * sizeof(buf_wght[0]));
 
+    #ifdef __linux__
     auto t2 = timer::now();
     duration_copy_in = t2 - t1;
+    #endif
 
     // also clear the hardware result buffer to ease debugging
     void* psum_addr = recacc_get_buffer(dev, buffer_type::psum);
@@ -237,12 +245,16 @@ bool Conv2DTest::get_accelerator_results() {
     if (!success)
         return false;
 
+    #ifdef __linux__
     auto t1 = timer::now();
+    #endif
 
     copy_data_out(buf_result_acc, alloc_bytes_acc);
 
+    #ifdef __linux__
     auto t2 = timer::now();
     duration_copy_out = t2 - t1;
+    #endif
 
     auto cycles = get_cycle_count();
     duration_acc = 1.0us * cycles / hw_freq_mhz;

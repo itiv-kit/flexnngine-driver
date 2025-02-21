@@ -28,6 +28,10 @@ void dump_status_register(recacc_device* dev) {
 
 int main(int argc, char** argv) {
     bool dryrun = false;
+    unsigned image_size = 32, kernel_size = 3, input_channels = 4, output_channels = 3;
+    enum activation_mode act_mode = act_none;
+    bool zero_bias = false;
+    bool requantize = false;
 
     #ifdef __linux__
     opterr = 0;
@@ -35,10 +39,6 @@ int main(int argc, char** argv) {
     string device_name(DEFAULT_DEVICE);
     string files_path;
     string output_path;
-    unsigned image_size = 32, kernel_size = 3, input_channels = 4, output_channels = 3;
-    enum activation_mode act_mode = act_none;
-    bool zero_bias = false;
-    bool requantize = false;
 
     while ((c = getopt (argc, argv, "hnd:p:o:s:c:k:u:Bra:")) != -1)
         switch (c) {
