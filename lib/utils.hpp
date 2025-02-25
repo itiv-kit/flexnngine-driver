@@ -68,7 +68,6 @@ template<typename T> size_t compare_buffers(T* buf_a, T* buf_b, size_t buf_size,
         T delta = abs(buf_a[n] - buf_b[n]);
         if (delta > 0) {
             if (delta > acceptable_delta) {
-                std::cerr << "incorrect at " << n << " values " << buf_a[n] << " | " << buf_b[n] << " delta " << delta << std::endl;
                 incorrect_cnt++;
                 if (incorrect_offset == ~0LU)
                     incorrect_offset = n;
