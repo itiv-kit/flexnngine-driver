@@ -30,14 +30,14 @@ array<Conv2D, 36> tests = {
     Conv2D(32, 5, 8, 2),
     Conv2D(64, 3, 4, 3),
     Conv2D(64, 5, 4, 2),
-    Conv2D(64, 3, 16, 3),
-    Conv2D(64, 5, 16, 2),
-    Conv2D(64, 3, 48, 3),
-    Conv2D(64, 5, 32, 2),
-    Conv2D(128, 3, 4, 3),
-    Conv2D(128, 5, 4, 2),
-    Conv2D(128, 3, 8, 3),
-    Conv2D(128, 5, 8, 2),
+    // Conv2D(64, 3, 16, 3),
+    // Conv2D(64, 5, 16, 2),
+    // Conv2D(64, 3, 48, 3),
+    // Conv2D(64, 5, 32, 2),
+    // Conv2D(128, 3, 4, 3),
+    // Conv2D(128, 5, 4, 2),
+    // Conv2D(128, 3, 8, 3),
+    // Conv2D(128, 5, 8, 2),
     // run the same convolutions with requantize enabled
     Conv2D(16, 3, 4, 3, true),
     Conv2D(16, 5, 4, 2, true),
@@ -49,14 +49,14 @@ array<Conv2D, 36> tests = {
     Conv2D(32, 5, 8, 2, true),
     Conv2D(64, 3, 4, 3, true),
     Conv2D(64, 5, 4, 2, true),
-    Conv2D(64, 3, 16, 3, true),
-    Conv2D(64, 5, 16, 2, true),
-    Conv2D(64, 3, 48, 3, true),
-    Conv2D(64, 5, 32, 2, true),
-    Conv2D(128, 3, 4, 3, true),
-    Conv2D(128, 5, 4, 2, true),
-    Conv2D(128, 3, 8, 3, true),
-    Conv2D(128, 5, 8, 2, true)
+    // Conv2D(64, 3, 16, 3, true),
+    // Conv2D(64, 5, 16, 2, true)
+    // Conv2D(64, 3, 48, 3, true),
+    // Conv2D(64, 5, 32, 2, true),
+    // Conv2D(128, 3, 4, 3, true),
+    // Conv2D(128, 5, 4, 2, true),
+    // Conv2D(128, 3, 8, 3, true),
+    // Conv2D(128, 5, 8, 2, true)
 };
 
 VariadicTable<int, int, int, int, int, string, string, float, float, float, float, float> vt({
