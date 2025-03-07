@@ -37,7 +37,8 @@ public:
     unsigned get_cycle_count() const;
     bool get_requantize() const;
 
-    void compute_accelerator_parameters();
+    void allocate_spad_auto();
+    void compute_accelerator_parameters(bool fixup_channel_alignment = true);
     void print_accelerator_parameters();
 
     void copy_data_in(void* iact_buf, size_t iact_bytes, void* wght_buf, size_t wght_bytes);
@@ -49,6 +50,7 @@ public:
 
 protected:
     void ensure_hwinfo();
+    void _copy_in_columnwise_zeropad(uint8_t* dst, uint8_t* buf, size_t bytes);
 
     unsigned iact_w = 32;
     unsigned iact_h = 32;
@@ -56,9 +58,19 @@ protected:
     unsigned wght_h = 3;
     unsigned input_channels = 4;
     unsigned output_channels = 3;
+    unsigned dummy_channels = 3;
     unsigned cycles = 0;
     bool requantize = false;
     enum activation_mode act_mode = act_none;
+
+    unsigned base_iact = 0;
+    unsigned base_wght = 0;
+    unsigned base_psum = 0;
+    unsigned spad_column_stride = 0;
+    unsigned channels_per_column = 0;
+    unsigned bytes_per_channel = 0;
+    unsigned bytes_per_kernel = 0;
+    unsigned bytes_per_output_channel = 0;
 
     recacc_device* dev;
     recacc_hwinfo hwinfo;

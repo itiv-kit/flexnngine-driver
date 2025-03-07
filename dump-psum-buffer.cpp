@@ -38,13 +38,21 @@ void print_buffer(void* data, size_t len) {
 }
 
 int main(int argc, char** argv) {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <offset> <nr_bytes> [device] [output_file]\n", argv[0]);
+        return 1;
+    }
+
+    int offset = atoi(argv[1]);
+    int bytes = atoi(argv[2]);
+
     string device_name(DEFAULT_DEVICE);
-    if (argc > 1)
-        device_name = string(argv[1]);
+    if (argc > 3)
+        device_name = string(argv[3]);
 
     string file_name;
-    if (argc > 2)
-        file_name = string(argv[2]);
+    if (argc > 4)
+        file_name = string(argv[4]);
 
     recacc_device dev;
     int ret = recacc_open(&dev, device_name.c_str());
@@ -56,22 +64,21 @@ int main(int argc, char** argv) {
         return ret;
     }
 
-
     recacc_hwinfo hwinfo;
     recacc_get_hwinfo(&dev, &hwinfo);
 
-    char* buf_psum = new char[hwinfo.spad_size_psum];
-    void* psum_addr = recacc_get_buffer(&dev, buffer_type::psum);
-    cerr << "reading " << hwinfo.spad_size_psum << " bytes from psum buffer at " << RECACC_MEM_OFFSET_PSUM << " (mapped at " << psum_addr << ")" << endl;
-    memcpy(buf_psum, psum_addr, hwinfo.spad_size_psum);
+    uint8_t* buf_psum = new uint8_t[bytes];
+    uint8_t* psum_addr = static_cast<uint8_t*>(recacc_get_buffer(&dev)) + offset;
+    cerr << "reading " << bytes << " bytes from psum buffer at " << RECACC_MEM_OFFSET_SPAD + offset << " (mapped at " << psum_addr << ")" << endl;
+    memcpy(buf_psum, psum_addr, bytes);
 
     if (file_name.length()) {
         ofstream myfile;
         myfile.open (file_name, ios::out | ios::binary);
-        myfile.write(buf_psum, hwinfo.spad_size_psum);
+        myfile.write(reinterpret_cast<char*>(buf_psum), bytes);
         myfile.close();
     } else {
-        print_buffer(buf_psum, hwinfo.spad_size_psum);
+        print_buffer(buf_psum, bytes);
     }
 
     ret = recacc_close(&dev);

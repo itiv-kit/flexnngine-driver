@@ -1,3 +1,5 @@
+#pragma once
+
 // act = 3d tensor with batch size always 1
 #include <algorithm>
 #include <cmath>

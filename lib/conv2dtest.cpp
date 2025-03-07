@@ -64,9 +64,7 @@ void Conv2DTest::ensure_hwinfo() {
         hwinfo.line_length_iact = 64;
         hwinfo.line_length_wght = 64;
         hwinfo.line_length_psum = 128;
-        hwinfo.spad_size_iact = 0x10000;
-        hwinfo.spad_size_wght = 0x10000;
-        hwinfo.spad_size_psum = 0x20000;
+        hwinfo.spad_size = 0x80000;
         hwinfo.data_width_bits_iact = 8;
         hwinfo.data_width_bits_wght = 8;
         hwinfo.data_width_bits_psum = 16;
@@ -154,14 +152,12 @@ void Conv2DTest::prepare_data(bool data_from_files, const string& files_path) {
             << num_wght_elements * sizeof(buf_wght[0]) << " bytes wght, "
             << num_result_elements * sizeof(buf_result_acc[0]) << " bytes psum" << endl;
 
-    if (num_iact_elements * sizeof(buf_iact[0]) > hwinfo.spad_size_iact)
-        throw runtime_error("iact spad memory too small!");
+    uint32_t total_data_size = num_iact_elements * sizeof(buf_iact[0])
+                             + num_wght_elements * sizeof(buf_wght[0])
+                             + alloc_bytes_acc;
 
-    if (num_wght_elements * sizeof(buf_wght[0]) > hwinfo.spad_size_wght)
-        throw runtime_error("wght spad memory too small!");
-
-    if (alloc_bytes_acc > hwinfo.spad_size_psum)
-        throw runtime_error("psum spad memory too small!");
+    if (total_data_size > hwinfo.spad_size)
+        throw runtime_error("spad memory too small!");
 }
 
 // calculate convolution on cpu as reference
@@ -192,7 +188,8 @@ void Conv2DTest::prepare_accelerator() {
     if (verbose > Verbosity::Errors)
         print_hwinfo(hwinfo);
 
-    compute_accelerator_parameters();
+    allocate_spad_auto();
+    compute_accelerator_parameters(true);
 
     if (verbose > Verbosity::Errors)
         print_accelerator_parameters();
@@ -224,8 +221,8 @@ void Conv2DTest::prepare_accelerator() {
     #endif
 
     // also clear the hardware result buffer to ease debugging
-    void* psum_addr = recacc_get_buffer(dev, buffer_type::psum);
-    memcpy(psum_addr, buf_result_acc, num_result_elements_aligned * sizeof(buf_result_acc[0]));
+    // void* psum_addr = recacc_get_buffer(dev, buffer_type::psum);
+    // memcpy(psum_addr, buf_result_acc, num_result_elements_aligned * sizeof(buf_result_acc[0]));
 }
 
 // start accelerator

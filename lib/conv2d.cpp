@@ -8,6 +8,8 @@
 #include <sstream>
 #include <stdexcept>
 
+#include "utils.hpp"
+
 using namespace std;
 
 Conv2D::Conv2D() {
@@ -27,6 +29,7 @@ Conv2D::Conv2D(unsigned image_size,
     set_channel_count(input_channels, output_channels);
     set_requantize(requantize);
     set_activation_mode(act_none);
+    dummy_channels = 0;
 }
 
 void Conv2D::set_image_size(unsigned w, unsigned h) {
@@ -76,7 +79,7 @@ bool Conv2D::get_requantize() const {
     return requantize;
 }
 
-void Conv2D::compute_accelerator_parameters() {
+void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
     ensure_hwinfo();
 
     assert(iact_w > 0);
@@ -90,10 +93,32 @@ void Conv2D::compute_accelerator_parameters() {
     assert(wght_w == wght_h);
     const int kernel_size = wght_w;
 
+    // fixup by default. this could change in the future.
+    if (fixup_channel_alignment) {
+        uint32_t align_to = hwinfo.spad_word_size;
+        dummy_channels = input_channels - make_multiple_of(align_to, input_channels);
+
+        if (dummy_channels)
+            cerr << "WARNING: adding " << dummy_channels << " dummy channels to align to scratchpad layout" << endl;
+    } else {
+        dummy_channels = 0;
+    }
+
     cfg.iact_dimension = image_size;
     cfg.wght_dimension = kernel_size;
-    cfg.input_channels = input_channels;
+    cfg.input_channels = input_channels + dummy_channels;
     cfg.output_channels = output_channels;
+    cfg.base_addr_iact = base_iact;
+    cfg.base_addr_wght = base_wght;
+    cfg.base_addr_psum = base_psum;
+    cfg.stride_iact_w = ceil((float)iact_w / hwinfo.spad_word_size);
+    cfg.stride_iact_hw = ceil((float)iact_w * iact_h / hwinfo.spad_word_size);;
+    cfg.stride_wght_krnl = bytes_per_kernel;
+    cfg.stride_wght_och = ceil(bytes_per_kernel * cfg.input_channels / hwinfo.spad_word_size);
+    cfg.stride_psum_och = ceil(bytes_per_output_channel / hwinfo.spad_word_size);
+
+    // check alignment to number of scratchpad columns
+    assert(cfg.input_channels % hwinfo.spad_word_size == 0);
 
     // currently only stride = 1 is implemented in software
     cfg.stride = 1;
@@ -119,28 +144,28 @@ void Conv2D::compute_accelerator_parameters() {
     else
         cfg.h2 = ceil((float)image_size / hwinfo.array_size_x);
 
-    cfg.c1 = ceil((float)input_channels * kernel_size / line_length_wght_usable);
-    cfg.c0 = floor((float)input_channels / cfg.c1);
+    cfg.c1 = ceil((float)cfg.input_channels * kernel_size / line_length_wght_usable);
+    cfg.c0 = floor((float)cfg.input_channels / cfg.c1);
 
-    cfg.c0_last_c1 = input_channels - (cfg.c1 - 1) * cfg.c0;
+    cfg.c0_last_c1 = cfg.input_channels - (cfg.c1 - 1) * cfg.c0;
     cfg.rows_last_h2 = 1; // not required for dataflow 0;
     cfg.c0w0 = cfg.c0 * kernel_size;
     cfg.c0w0_last_c1 = cfg.c0_last_c1 * kernel_size;
 
-    cfg.c1 = ceil((float)input_channels / cfg.c0);
-    cfg.c0_last_c1 = input_channels - (cfg.c1 - 1) * cfg.c0;
+    cfg.c1 = ceil((float)cfg.input_channels / cfg.c0);
+    cfg.c0_last_c1 = cfg.input_channels - (cfg.c1 - 1) * cfg.c0;
     cfg.c0w0 = cfg.c0 * kernel_size;
     cfg.c0w0_last_c1 = cfg.c0_last_c1 * kernel_size;
 
     // C0W0 must not be too short to allow for disabling of PE array while reading data
     if (cfg.c0w0_last_c1 < 6) {
         cfg.c1 = cfg.c1 - 1;
-        cfg.c0_last_c1 = input_channels - (cfg.c1 - 1) * cfg.c0;
+        cfg.c0_last_c1 = cfg.input_channels - (cfg.c1 - 1) * cfg.c0;
         cfg.c0w0 = cfg.c0 * kernel_size;
         cfg.c0w0_last_c1 = cfg.c0_last_c1 * kernel_size;
     }
 
-    if (cfg.c0w0 * (cfg.c1 - 1) + cfg.c0w0_last_c1 != input_channels * kernel_size) {
+    if (cfg.c0w0 * (cfg.c1 - 1) + cfg.c0w0_last_c1 != cfg.input_channels * kernel_size) {
         cout << "h2 = " << cfg.h2 << endl;
         cout << "rows_last_h2 = " << cfg.rows_last_h2 << endl;
         cout << "c1 = " << cfg.c1 << endl;
@@ -193,22 +218,75 @@ void Conv2D::print_accelerator_parameters() {
     cout << "  c0_last_c1      " << cfg.c0_last_c1 << endl;
     cout << "  c0w0            " << cfg.c0w0 << endl;
     cout << "  c0w0_last_c1    " << cfg.c0w0_last_c1 << endl;
+
+    if (dummy_channels)
+        cout << "  dummy_channels  " << dummy_channels << " (align to scratchpad layout)" << endl;
+}
+
+// this function is a simple greedy memory allocator and just places iact, wght, psum after each other
+void Conv2D::allocate_spad_auto() {
+    ensure_hwinfo();
+
+    bytes_per_channel = iact_h * iact_w;
+    bytes_per_kernel = wght_h * wght_w;
+    bytes_per_output_channel = (iact_w - wght_w + 1) * (iact_h - wght_h + 1);
+    spad_column_stride = hwinfo.spad_size / hwinfo.spad_word_size;
+    channels_per_column = ceil((float)input_channels / hwinfo.spad_word_size);
+
+    // place iact at scratchpad start
+    base_iact = 0;
+
+    // place wght directly after iact, aligned to 32 bytes
+    base_wght = make_multiple_of(32, channels_per_column * bytes_per_channel);
+
+    // place psum directly after wght, aligned to 32 bytes
+    base_wght = make_multiple_of(32, base_wght + channels_per_column * bytes_per_kernel);
+}
+
+void Conv2D::_copy_in_columnwise_zeropad(uint8_t* dst, uint8_t* buf, size_t bytes) {
+    for (unsigned col = 0; col < hwinfo.spad_word_size; col++) {
+        size_t copy_size = channels_per_column * bytes_per_channel;
+
+        // try to copy all data for this column from the input buffer
+        size_t copy_size_from_buf = copy_size;
+        if (copy_size_from_buf > bytes)
+            copy_size_from_buf = bytes;
+        if (copy_size_from_buf) {
+            memcpy(dst, buf, copy_size_from_buf);
+            buf += copy_size;
+            bytes -= copy_size;
+            copy_size -= copy_size_from_buf;
+        }
+
+        // if input buffer is insufficient, pad with zeros (happens when dummy_channels > 0 or insufficient data provided by caller)
+        if (copy_size) {
+            memset(dst + copy_size_from_buf, 0, copy_size);
+        }
+
+        // advance to next column
+        dst += spad_column_stride;
+    }
 }
 
 void Conv2D::copy_data_in(void* iact_buf, size_t iact_bytes, void* wght_buf, size_t wght_bytes) {
     ensure_hwinfo();
 
-    if (iact_bytes > hwinfo.spad_size_iact)
-        throw runtime_error("iact spad memory too small!");
+    if (iact_bytes > hwinfo.spad_size || iact_bytes > bytes_per_channel * hwinfo.spad_word_size)
+        throw runtime_error("spad memory too small for iact data!");
 
-    if (wght_bytes > hwinfo.spad_size_wght)
-        throw runtime_error("wght spad memory too small!");
+    if (wght_bytes > hwinfo.spad_size || wght_bytes > bytes_per_channel * hwinfo.spad_word_size)
+        throw runtime_error("spad memory too small for wght data!");
 
-    void* iact_addr = recacc_get_buffer(dev, buffer_type::iact);
-    memcpy(iact_addr, iact_buf, iact_bytes);
+    uint8_t* spad = static_cast<uint8_t*>(recacc_get_buffer(dev));
 
-    void* wght_addr = recacc_get_buffer(dev, buffer_type::wght);
-    memcpy(wght_addr, wght_buf, wght_bytes);
+    // copy iact data column-wise
+    // to speed up copying, channels are not mapped ch0 -> col0, ch1 -> col1,
+    // but vertically first (ch0+ch1 -> col1, ch2+ch3 -> col2) (for 16 channels)
+    uint8_t* iact_addr = spad + base_iact;
+    _copy_in_columnwise_zeropad(iact_addr, static_cast<uint8_t*>(iact_buf), iact_bytes);
+
+    uint8_t* wght_addr = spad + base_wght;
+    _copy_in_columnwise_zeropad(wght_addr, static_cast<uint8_t*>(wght_buf), wght_bytes);
 }
 
 void Conv2D::set_postproc_data(const vector<int16_t>& bias, const vector<float>& factors, const vector<float>& zeropoints) {
@@ -230,7 +308,9 @@ void Conv2D::set_postproc_data(const vector<int16_t>& bias, const vector<float>&
         float value = 0.0;
         if (n < factors.size())
             value = factors[n];
-        recacc_reg_write(dev, idx, *reinterpret_cast<uint32_t*>(&value));
+        uint32_t buf;
+        memcpy(&buf, &value, sizeof(buf));
+        recacc_reg_write(dev, idx, buf);
     }
 
     for (size_t n = 0; n < hwinfo.max_output_channels; n++) {
@@ -238,7 +318,9 @@ void Conv2D::set_postproc_data(const vector<int16_t>& bias, const vector<float>&
         float value = 0.0;
         if (n < zeropoints.size())
             value = zeropoints[n];
-        recacc_reg_write(dev, idx, *reinterpret_cast<uint32_t*>(&value));
+        uint32_t buf;
+        memcpy(&buf, &value, sizeof(buf));
+        recacc_reg_write(dev, idx, buf);
     }
 }
 
@@ -306,18 +388,26 @@ bool Conv2D::wait_until_accelerator_done() {
 }
 
 void Conv2D::copy_data_out(void* psum_buf, size_t psum_bytes) {
-    // const size_t output_size = (iact_w - wght_w + 1) * (iact_h - wght_h + 1);
+    // TODO: support raw mode without postprocessing -> 16bit psums
     // const size_t expected_bytes = output_size * output_channels * 2;
 
     // size_t length = expected_bytes;
     // if (max_size < length)
     //     length = max_size;
 
-    if (psum_bytes > hwinfo.spad_size_psum)
-        throw runtime_error("copy data out larger than scratchpad size");
+    if (psum_bytes > bytes_per_output_channel * output_channels)
+        throw runtime_error("copy data out larger than available psum size");
 
-    void* psum_addr = recacc_get_buffer(dev, buffer_type::psum);
-    memcpy(psum_buf, psum_addr, psum_bytes);
+    uint8_t* src = static_cast<uint8_t*>(psum_buf);
+    uint8_t* psum_addr = nullptr;
+    for (unsigned och = 0; och < output_channels && psum_bytes >= bytes_per_output_channel; och ++) {
+        if (och % hwinfo.spad_word_size == 0)
+            psum_addr = static_cast<uint8_t*>(recacc_get_buffer(dev)) + base_psum + bytes_per_output_channel * och / hwinfo.spad_word_size;
+        memcpy(src, psum_addr, bytes_per_output_channel);
+        src += bytes_per_output_channel;
+        psum_addr += spad_column_stride;
+        psum_bytes -= bytes_per_output_channel;
+    }
 
     // deassert start bit, this resets the control logic and allows for starting the next iteration
     recacc_control_stop(dev);

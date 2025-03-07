@@ -54,4 +54,4 @@ void recacc_control_stop(const recacc_device* dev);
 void recacc_get_hwinfo(const recacc_device* dev, recacc_hwinfo* hwinfo);
 
 // return the virtual buffer address for a specific buffer type
-void* recacc_get_buffer(const recacc_device* dev, enum buffer_type type);
+void* recacc_get_buffer(const recacc_device* dev);

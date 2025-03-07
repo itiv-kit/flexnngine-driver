@@ -24,6 +24,14 @@ typedef struct {
     uint32_t c0_last_c1;
     uint32_t c0w0;
     uint32_t c0w0_last_c1;
+    uint32_t base_addr_iact;
+    uint32_t base_addr_wght;
+    uint32_t base_addr_psum;
+    uint32_t stride_iact_w;
+    uint32_t stride_iact_hw;
+    uint32_t stride_wght_krnl;
+    uint32_t stride_wght_och;
+    uint32_t stride_psum_och;
     uint32_t stride;
     uint32_t magic;
 } recacc_config;
@@ -34,9 +42,8 @@ typedef struct {
     uint32_t line_length_iact;
     uint32_t line_length_wght;
     uint32_t line_length_psum;
-    uint32_t spad_size_iact;
-    uint32_t spad_size_wght;
-    uint32_t spad_size_psum;
+    uint32_t spad_size;
+    uint32_t spad_word_size;
     uint8_t  data_width_bits_iact;
     uint8_t  data_width_bits_wght;
     uint8_t  data_width_bits_psum;
@@ -51,6 +58,11 @@ typedef struct {
     bool ctrl_iact_done:1;
     bool ctrl_wght_done:1;
     bool preload_done:1;
+    uint32_t reserved:23;
+    bool spad_iact_full:1;
+    bool spad_iact_empty:1;
+    bool spad_wght_full:1;
+    bool spad_wght_empty:1;
 } __attribute__((packed)) recacc_status;
 
 union recacc_status_reg {
@@ -70,9 +82,10 @@ union recacc_control_reg {
     recacc_control decoded;
 };
 
-enum buffer_type {
-    iact, wght, psum
-};
+// not used anymore for merged spad
+// enum buffer_type {
+//     iact, wght, psum
+// };
 
 enum activation_mode {
     act_none, act_relu

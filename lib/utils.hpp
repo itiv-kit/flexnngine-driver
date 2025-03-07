@@ -1,3 +1,5 @@
+#pragma once
+
 #include "types.h"
 
 #include <iostream>
@@ -88,7 +90,7 @@ static auto make_multiple_of(auto div, auto value) {
     return value;
 }
 
-void print_hwinfo(const recacc_hwinfo& hwinfo) {
+static void print_hwinfo(const recacc_hwinfo& hwinfo) {
     std::cout << "Accelerator configuration:" << std::endl;
     std::cout << " array size: " << hwinfo.array_size_y
               << "x" << hwinfo.array_size_x << std::endl;
@@ -100,11 +102,10 @@ void print_hwinfo(const recacc_hwinfo& hwinfo) {
               << " iact " << hwinfo.line_length_iact
               << " wght " << hwinfo.line_length_wght
               << " psum " << hwinfo.line_length_psum << std::endl;
-    std::cout << " scratchpad sizes:";
-    std::cout << " iact " << hwinfo.spad_size_iact
-              << " wght " << hwinfo.spad_size_wght
-              << " psum " << hwinfo.spad_size_psum << std::endl;
+    std::cout << " scratchpad size:" << hwinfo.spad_size
+              << " bytes (word size " << hwinfo.spad_word_size << ")" << std::endl;
     std::cout << " trs " << hwinfo.trs_dataflow
               << " postproc " << hwinfo.bias_requant_available
               << " max och " << static_cast<int>(hwinfo.max_output_channels) << std::endl;
 }
+

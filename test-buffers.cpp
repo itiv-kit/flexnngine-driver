@@ -43,16 +43,12 @@ class Conv2DTest {
 public:
     Conv2DTest(recacc_device* accelerator)
         : mtrnd(std::chrono::system_clock::now().time_since_epoch().count()) {
-        buf_iact = nullptr;
-        buf_wght = nullptr;
-        buf_psum = nullptr;
+        buf = nullptr;
         this->dev = accelerator;
     }
 
     ~Conv2DTest() {
-        if (buf_iact) delete[] buf_iact;
-        if (buf_wght) delete[] buf_wght;
-        if (buf_psum) delete[] buf_psum;
+        if (buf) delete[] buf;
     }
 
     void generate_random_data_int8(int8_t* ptr, size_t n) {
@@ -63,14 +59,8 @@ public:
     void prepare_data() {
         cout << "generating random test data for each buffer" << endl;
 
-        buf_iact = new int8_t[hwinfo.spad_size_iact];
-        generate_random_data_int8(buf_iact, hwinfo.spad_size_iact);
-
-        buf_wght = new int8_t[hwinfo.spad_size_wght];
-        generate_random_data_int8(buf_wght, hwinfo.spad_size_wght);
-
-        buf_psum = new int8_t[hwinfo.spad_size_psum];
-        generate_random_data_int8(buf_psum, hwinfo.spad_size_psum);
+        buf = new int8_t[hwinfo.spad_size];
+        generate_random_data_int8(buf, hwinfo.spad_size);
     }
 
     void test_buffers() {
@@ -79,24 +69,14 @@ public:
         // memset(buf_psum, 0, num_result_elements * sizeof(buf_psum[0]));
 
         // copy random data to buffers
-        void* iact_addr = recacc_get_buffer(dev, buffer_type::iact);
-        cout << "copy " << hwinfo.spad_size_iact << " bytes to iact buffer at " << RECACC_MEM_OFFSET_IACT << " (mapped at " << iact_addr << ")" << endl;
-        memcpy(iact_addr, buf_iact, hwinfo.spad_size_iact);
-
-        void* wght_addr = recacc_get_buffer(dev, buffer_type::wght);
-        cout << "copy " << hwinfo.spad_size_wght << " bytes to wght buffer at " << RECACC_MEM_OFFSET_WGHT << " (mapped at " << wght_addr << ")" << endl;
-        memcpy(wght_addr, buf_wght, hwinfo.spad_size_wght);
-
-        void* psum_addr = recacc_get_buffer(dev, buffer_type::psum);
-        cout << "copy " << hwinfo.spad_size_psum << " bytes to psum buffer at " << RECACC_MEM_OFFSET_PSUM << " (mapped at " << psum_addr << ")" << endl;
-        memcpy(psum_addr, buf_psum, hwinfo.spad_size_psum);
+        void* spad_addr = recacc_get_buffer(dev);
+        cout << "copy " << hwinfo.spad_size << " bytes to iact buffer at " << RECACC_MEM_OFFSET_SPAD << " (mapped at " << spad_addr << ")" << endl;
+        memcpy(spad_addr, buf, hwinfo.spad_size);
 
         sleep(1);
 
         // now read data back and compare
-        verify("iact", iact_addr, buf_iact, hwinfo.spad_size_iact);
-        verify("wght", wght_addr, buf_wght, hwinfo.spad_size_wght);
-        verify("psum", psum_addr, buf_psum, hwinfo.spad_size_psum);
+        verify("iact", spad_addr, buf, hwinfo.spad_size);
     }
 
     void verify(const string& name, void* src, int8_t* reference, size_t size) {
@@ -126,9 +106,7 @@ private:
     mt19937 mtrnd;
     recacc_device* dev;
 
-    int8_t* buf_iact;
-    int8_t* buf_wght;
-    int8_t* buf_psum;
+    int8_t* buf;
 };
 
 int main(int argc, char** argv) {
