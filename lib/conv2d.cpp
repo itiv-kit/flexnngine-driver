@@ -96,8 +96,7 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
     // fixup by default. this could change in the future.
     if (fixup_channel_alignment) {
         uint32_t align_to = hwinfo.spad_word_size;
-        dummy_channels = input_channels - make_multiple_of(align_to, input_channels);
-
+        dummy_channels = make_multiple_of(align_to, input_channels) - input_channels;
         if (dummy_channels)
             cerr << "WARNING: adding " << dummy_channels << " dummy channels to align to scratchpad layout" << endl;
     } else {
@@ -240,27 +239,52 @@ void Conv2D::allocate_spad_auto() {
     base_wght = make_multiple_of(32, channels_per_column * bytes_per_channel);
 
     // place psum directly after wght, aligned to 32 bytes
-    base_wght = make_multiple_of(32, base_wght + channels_per_column * bytes_per_kernel);
+    base_psum = make_multiple_of(32, base_wght + channels_per_column * bytes_per_kernel);
 }
 
-void Conv2D::_copy_in_columnwise_zeropad(uint8_t* dst, uint8_t* buf, size_t bytes) {
+std::tuple<unsigned, unsigned, unsigned> Conv2D::get_buffer_offsets() const {
+    return {base_iact, base_wght, base_psum};
+}
+
+void Conv2D::set_buffer_offsets(unsigned offset_iact, unsigned offset_wght, unsigned offset_psum) {
+    base_iact = offset_iact;
+    base_wght = offset_wght;
+    base_psum = offset_psum;
+}
+
+void Conv2D::_copy_in_columnwise_zeropad(int8_t* dst, size_t stride_size, int8_t* buf, size_t bytes_avail) {
     for (unsigned col = 0; col < hwinfo.spad_word_size; col++) {
-        size_t copy_size = channels_per_column * bytes_per_channel;
+        size_t col_bytes = channels_per_column * stride_size;
 
         // try to copy all data for this column from the input buffer
-        size_t copy_size_from_buf = copy_size;
-        if (copy_size_from_buf > bytes)
-            copy_size_from_buf = bytes;
-        if (copy_size_from_buf) {
-            memcpy(dst, buf, copy_size_from_buf);
-            buf += copy_size;
-            bytes -= copy_size;
-            copy_size -= copy_size_from_buf;
+        size_t col_bytes_buf = col_bytes;
+        if (col_bytes_buf > bytes_avail)
+            col_bytes_buf = bytes_avail;
+        if (col_bytes_buf) {
+            cout << "col " << col << " copy " << col_bytes_buf << " bytes to " << (void*)dst << endl;
+            // align copy to multiples of spad_word_size, byte-wise access may be illegal
+            size_t col_bytes_buf_aligned = make_multiple_of(hwinfo.spad_word_size, col_bytes_buf);
+            if (bytes_avail >= col_bytes_buf_aligned)
+                // memcpy(dst, buf, col_bytes_buf_aligned);
+                copy(buf, buf + col_bytes_buf_aligned, dst);
+            else {
+                // make a temporary copy if the buffer is too small
+                int8_t tmp[col_bytes_buf_aligned];
+                copy(buf, buf + col_bytes_buf, tmp);
+                fill(tmp + col_bytes_buf, tmp + col_bytes_buf_aligned, 0);
+                copy(tmp, tmp +col_bytes_buf_aligned, dst);
+            }
+            buf += col_bytes;
+            bytes_avail -= col_bytes;
+            col_bytes -= col_bytes_buf;
         }
 
         // if input buffer is insufficient, pad with zeros (happens when dummy_channels > 0 or insufficient data provided by caller)
-        if (copy_size) {
-            memset(dst + copy_size_from_buf, 0, copy_size);
+        if (col_bytes) {
+            cout << "col " << col << " zero " << col_bytes << " bytes at " << (void*)(dst + col_bytes_buf) << endl;
+            // memset(dst + col_bytes_buf, 0, col_bytes);
+            // __builtin_memset(dst + col_bytes_buf, 0, col_bytes);
+            fill(dst + col_bytes_buf, dst + col_bytes_buf + col_bytes, 0);
         }
 
         // advance to next column
@@ -277,16 +301,19 @@ void Conv2D::copy_data_in(void* iact_buf, size_t iact_bytes, void* wght_buf, siz
     if (wght_bytes > hwinfo.spad_size || wght_bytes > bytes_per_channel * hwinfo.spad_word_size)
         throw runtime_error("spad memory too small for wght data!");
 
-    uint8_t* spad = static_cast<uint8_t*>(recacc_get_buffer(dev));
+    int8_t* spad = static_cast<int8_t*>(recacc_get_buffer(dev));
 
     // copy iact data column-wise
     // to speed up copying, channels are not mapped ch0 -> col0, ch1 -> col1,
     // but vertically first (ch0+ch1 -> col1, ch2+ch3 -> col2) (for 16 channels)
-    uint8_t* iact_addr = spad + base_iact;
-    _copy_in_columnwise_zeropad(iact_addr, static_cast<uint8_t*>(iact_buf), iact_bytes);
+    // TODO: reduce traffic by just zeroing dummy kernels, channels can be arbitrary data
+    int8_t* iact_addr = spad + base_iact;
+    cout << "copy iact from " << (void*)iact_buf << " to " << (void*)iact_addr << " " << iact_bytes << " bytes" << endl;
+    _copy_in_columnwise_zeropad(iact_addr, bytes_per_channel, static_cast<int8_t*>(iact_buf), iact_bytes);
 
-    uint8_t* wght_addr = spad + base_wght;
-    _copy_in_columnwise_zeropad(wght_addr, static_cast<uint8_t*>(wght_buf), wght_bytes);
+    int8_t* wght_addr = spad + base_wght;
+    cout << "copy wght from " << (void*)wght_buf << " to " << (void*)wght_addr << " " << wght_bytes << " bytes" << endl;
+    _copy_in_columnwise_zeropad(wght_addr, bytes_per_kernel, static_cast<int8_t*>(wght_buf), wght_bytes);
 }
 
 void Conv2D::set_postproc_data(const vector<int16_t>& bias, const vector<float>& factors, const vector<float>& zeropoints) {
@@ -395,18 +422,41 @@ void Conv2D::copy_data_out(void* psum_buf, size_t psum_bytes) {
     // if (max_size < length)
     //     length = max_size;
 
-    if (psum_bytes > bytes_per_output_channel * output_channels)
-        throw runtime_error("copy data out larger than available psum size");
+    // if (psum_bytes < bytes_per_output_channel * output_channels)
+    //     throw runtime_error("copy_data_out buffer too small");
+    // well we don't care, when the buffer is too small the user does not get all results
 
-    uint8_t* src = static_cast<uint8_t*>(psum_buf);
-    uint8_t* psum_addr = nullptr;
-    for (unsigned och = 0; och < output_channels && psum_bytes >= bytes_per_output_channel; och ++) {
-        if (och % hwinfo.spad_word_size == 0)
-            psum_addr = static_cast<uint8_t*>(recacc_get_buffer(dev)) + base_psum + bytes_per_output_channel * och / hwinfo.spad_word_size;
-        memcpy(src, psum_addr, bytes_per_output_channel);
-        src += bytes_per_output_channel;
-        psum_addr += spad_column_stride;
-        psum_bytes -= bytes_per_output_channel;
+    // size_t oc_bytes = make_multiple_of(8, bytes_per_output_channel);
+    // limit number of channels to available buffer size
+    size_t copy_och_count = psum_bytes / bytes_per_output_channel;
+    if (copy_och_count > output_channels)
+        copy_och_count = output_channels;
+
+    int8_t* dst = static_cast<int8_t*>(psum_buf);
+    int8_t* psum_addr = nullptr;
+    for (unsigned och = 0; och < copy_och_count; och++) {
+        psum_addr = static_cast<int8_t*>(recacc_get_buffer(dev)) + base_psum
+                    + bytes_per_output_channel * (och / hwinfo.spad_word_size)
+                    + spad_column_stride * (och % hwinfo.spad_word_size);
+        cout << "copy och " << och << " from " << (void*)psum_addr << " to " << (void*)dst << " " << bytes_per_output_channel << " bytes" << endl;
+        // size_t copy_size_unaligned = bytes_per_output_channel % hwinfo.spad_word_size;
+        // size_t copy_size_aligned = bytes_per_output_channel - copy_size_unaligned;
+        // copy(psum_addr, psum_addr + copy_size_aligned, dst)
+        // if (copy_size_unaligned) {
+        //     int8_t tmp[hwinfo.spad_word_size];
+        //     copy(psum_addr + copy_size_aligned, psum_addr + copy_size_aligned + hwinfo.spad_word_size, tmp);
+        //     copy(tmp, tmp+copy_size_unaligned, dst + copy_size_aligned);
+        // }
+
+        // TODO: improve copy-out. we do manual 32bit reads here to allow 4-byte aligned output channels sizes
+        // i.e. reading 900 bytes for 30x30 output image would fail with memcpy for 2nd channel,
+        // cause the target address + 900 is not aligned to 8-byte anymore (and on aarch64 64bit copy is default)
+        uint32_t* psum_addr32 = reinterpret_cast<uint32_t*>(psum_addr);
+        uint32_t* dst32 = reinterpret_cast<uint32_t*>(dst);
+        for (size_t n = 0; n < bytes_per_output_channel / 4; n++)
+            dst32[n] = psum_addr32[n];
+        dst += bytes_per_output_channel;
+
     }
 
     // deassert start bit, this resets the control logic and allows for starting the next iteration

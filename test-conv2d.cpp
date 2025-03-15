@@ -147,7 +147,7 @@ int main(int argc, char** argv) {
     c2d.set_requantize(requantize);
     c2d.set_bias(!zero_bias);
 
-    cout << "preparing random test data" << endl;
+    cout << "preparing test data" << endl;
     #ifdef __linux__
     c2d.prepare_data(files_path.length() > 0, files_path);
     #else

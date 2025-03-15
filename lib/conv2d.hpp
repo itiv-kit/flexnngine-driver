@@ -38,6 +38,9 @@ public:
     bool get_requantize() const;
 
     void allocate_spad_auto();
+    std::tuple<unsigned, unsigned, unsigned> get_buffer_offsets() const;
+    void set_buffer_offsets(unsigned offset_iact, unsigned offset_wght, unsigned offset_psum);
+
     void compute_accelerator_parameters(bool fixup_channel_alignment = true);
     void print_accelerator_parameters();
 
@@ -50,7 +53,7 @@ public:
 
 protected:
     void ensure_hwinfo();
-    void _copy_in_columnwise_zeropad(uint8_t* dst, uint8_t* buf, size_t bytes);
+    void _copy_in_columnwise_zeropad(int8_t* dst, size_t stride_size, int8_t* buf, size_t bytes_avail);
 
     unsigned iact_w = 32;
     unsigned iact_h = 32;

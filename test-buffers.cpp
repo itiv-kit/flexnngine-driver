@@ -57,7 +57,7 @@ public:
     }
 
     void prepare_data() {
-        cout << "generating random test data for each buffer" << endl;
+        cout << "generating random test data" << endl;
 
         buf = new int8_t[hwinfo.spad_size];
         generate_random_data_int8(buf, hwinfo.spad_size);

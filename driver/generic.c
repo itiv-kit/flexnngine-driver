@@ -172,7 +172,7 @@ void recacc_get_hwinfo(const recacc_device* dev, recacc_hwinfo* hwinfo) {
 
     tmp = recacc_reg_read(dev, RECACC_REG_IDX_ADDR_WIDTH);
     hwinfo->spad_size      = powl(2, tmp >> 0 & 0xff);
-    hwinfo->spad_word_size = powl(2, tmp >> 8 & 0xff);
+    hwinfo->spad_word_size = tmp >> 8 & 0xff;
 
     tmp = recacc_reg_read(dev, RECACC_REG_IDX_CAPABILITIES);
     hwinfo->max_output_channels = tmp & 0xff;

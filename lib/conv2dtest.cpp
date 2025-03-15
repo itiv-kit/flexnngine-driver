@@ -109,20 +109,53 @@ void Conv2DTest::prepare_data(bool data_from_files, const string& files_path) {
     ensure_hwinfo();
 
     buf_bias.resize(output_channels);
-    if (bias && hwinfo.bias_requant_available)
-        generate_random_data<int16_t>(buf_bias.data(), output_channels); // bias is still % 256 even though its type is larger
-    else {
+    if (bias && hwinfo.bias_requant_available) {
+        if (data_from_files) {
+            size_t str_bias_idx = files_path.find("_Bi_");
+            if (str_bias_idx != string::npos) {
+                stringstream ss(files_path.substr(str_bias_idx));
+                int file_bias = 0;
+                if (ss >> file_bias)
+                    cout << "using bias of " << file_bias << " from testdata path for all channels" << endl;
+                else
+                    cout << "warning: failed to extract bias from testdata path, using " << file_bias << endl;
+                fill(buf_bias.begin(), buf_bias.end(), file_bias);
+            }
+        } else
+            generate_random_data<int16_t>(buf_bias.data(), output_channels); // bias is still % 256 even though its type is larger
+    } else {
         if (bias)
-            std::cout << "warning: non-zero bias requested but no postproc support in hardware, using zero bias" << endl;
+            cout << "warning: non-zero bias requested but no postproc support in hardware, using zero bias" << endl;
         fill(buf_bias.begin(), buf_bias.end(), 0);
     }
 
     buf_scale.resize(output_channels);
     buf_zeropoint.resize(output_channels);
     if (requantize) {
-        // TODO: provide dynamic scale/zeropoint values instead of fixed ones
-        fill(buf_scale.begin(), buf_scale.end(), 0.0025);
-        fill(buf_zeropoint.begin(), buf_zeropoint.end(), -5);
+        if (data_from_files) {
+            // float tmp[output_channels * 2];
+            // size_t n = read_text_data<float>(tmp, output_channels * 2, files_path + "/_zeropt_scale.txt");
+            // if (output_channels * 2 != n) {
+            //     cout << "warning: only " << n << " zeropt/scale words read, " << output_channels * 2 << " expected." << endl;
+            //     memset(tmp + n, 0, (output_channels * 2 - n) * sizeof(tmp[0]));
+            // }
+            // for (int n = 0; n < output_channels; n++) {
+            //     buf_zeropoint[n] = tmp[2 * n];
+            //     buf_scale[n] = tmp[2 * n + 1];
+            // }
+            ifstream infile(files_path + "/_zeropt_scale.txt");
+            for (int n = 0; n < output_channels; n++)
+                if (!(infile >> buf_zeropoint[n] >> buf_scale[n])) {
+                    cout << "warning: only " << n << " zeropt/scale tuples read, " << output_channels << " expected." << endl;
+                    fill(buf_zeropoint.begin() + n, buf_zeropoint.end(), 0.0);
+                    fill(buf_scale.begin() + n, buf_scale.end(), 0.0);
+                    break;
+                }
+        } else {
+            // TODO: provide dynamic scale/zeropoint values instead of fixed ones
+            fill(buf_scale.begin(), buf_scale.end(), 0.0025);
+            fill(buf_zeropoint.begin(), buf_zeropoint.end(), -5);
+        }
 
         if (verbose > Verbosity::Errors)
             cout << "  requantizing output data of ch0 with scale " << buf_scale[0] << ", zeropoint " << buf_zeropoint[0] << endl;
@@ -140,8 +173,13 @@ void Conv2DTest::prepare_data(bool data_from_files, const string& files_path) {
     // setup helper pointer to access psums when requantize is disabled
     buf_result_acc_psums = reinterpret_cast<int16_t*>(buf_result_acc);
     if (data_from_files) {
-        buf_result_files = new int16_t[num_result_elements];
-        size_t n = read_text_data<int16_t>(buf_result_files, num_result_elements, files_path + "/_convolution_stack.txt");
+        buf_result_files = new int8_t[num_result_elements * 2];
+        buf_result_files_psums = reinterpret_cast<int16_t*>(buf_result_files);
+        size_t n = 0;
+        if (requantize)
+            n = read_text_data<int8_t>(buf_result_files, num_result_elements, files_path + "/_convolution_stack.txt");
+        else
+            n = read_text_data<int16_t>(buf_result_files_psums, num_result_elements, files_path + "/_convolution_stack.txt");
         if (num_result_elements != n)
             cout << "warning: only " << n << " result words read, " << num_result_elements << " expected." << endl;
     }
@@ -189,6 +227,11 @@ void Conv2DTest::prepare_accelerator() {
         print_hwinfo(hwinfo);
 
     allocate_spad_auto();
+    if (verbose > Verbosity::Errors) {
+        auto offs = get_buffer_offsets();
+        cout << "spad alloc iact " << get<0>(offs) << " wght " << get<1>(offs) << " psum " << get<2>(offs) << endl;
+    }
+
     compute_accelerator_parameters(true);
 
     if (verbose > Verbosity::Errors)
@@ -221,8 +264,10 @@ void Conv2DTest::prepare_accelerator() {
     #endif
 
     // also clear the hardware result buffer to ease debugging
-    // void* psum_addr = recacc_get_buffer(dev, buffer_type::psum);
-    // memcpy(psum_addr, buf_result_acc, num_result_elements_aligned * sizeof(buf_result_acc[0]));
+    uint8_t* buf = reinterpret_cast<uint8_t*>(recacc_get_buffer(dev)) + base_psum;
+    const unsigned col_size = hwinfo.spad_size / hwinfo.spad_word_size - base_psum;
+    for (unsigned col = 0; col < hwinfo.spad_word_size; col++, buf += hwinfo.spad_word_size)
+        fill(buf, buf + col_size, 0xaa);
 }
 
 // start accelerator
@@ -305,7 +350,7 @@ bool Conv2DTest::verify() {
     bool success = true;
 
     if (buf_result_files)
-        success = _verify_buffers(buf_result_cpu, reinterpret_cast<int8_t*>(buf_result_files), "CPU", "file") == 0;
+        success = _verify_buffers(buf_result_cpu, buf_result_files, "CPU", "file") == 0;
 
     if (!dryrun)
         success = _verify_buffers(buf_result_acc, buf_result_cpu, "ACC", "CPU") == 0;
