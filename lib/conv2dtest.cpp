@@ -12,9 +12,9 @@
 
 using namespace std;
 
-// using timer = std::chrono::high_resolution_clock;
-using timer = std::chrono::steady_clock;
-using std::chrono::microseconds;
+// using timer = chrono::high_resolution_clock;
+using timer = chrono::steady_clock;
+using chrono::microseconds;
 
 const unsigned hw_freq_mhz = 100;
 
@@ -339,7 +339,7 @@ size_t Conv2DTest::_verify_buffers(int8_t* input, int8_t* reference, const strin
 
         cout << name_input << " result (128 words at " << display_offset << "):" << endl;
         print_buffer<int16_t>(input, 128, display_offset, 8, incorrect_offset);
-        cout << name_reference << " result from file:" << endl;
+        cout << name_reference << " result:" << endl;
         print_buffer<int16_t>(reference, 128, display_offset, 8, incorrect_offset);
     }
 

@@ -110,11 +110,11 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
     cfg.base_addr_iact = base_iact;
     cfg.base_addr_wght = base_wght;
     cfg.base_addr_psum = base_psum;
-    cfg.stride_iact_w = ceil((float)iact_w / hwinfo.spad_word_size);
-    cfg.stride_iact_hw = ceil((float)iact_w * iact_h / hwinfo.spad_word_size);;
+    cfg.stride_iact_w = ceil(1.0 * iact_w / hwinfo.spad_word_size);
+    cfg.stride_iact_hw = ceil(1.0 * iact_w * iact_h / hwinfo.spad_word_size);;
     cfg.stride_wght_krnl = bytes_per_kernel;
-    cfg.stride_wght_och = ceil(bytes_per_kernel * cfg.input_channels / hwinfo.spad_word_size);
-    cfg.stride_psum_och = ceil(bytes_per_output_channel / hwinfo.spad_word_size);
+    cfg.stride_wght_och = ceil(1.0 * bytes_per_kernel * cfg.input_channels / hwinfo.spad_word_size);
+    cfg.stride_psum_och = ceil(1.0 * bytes_per_output_channel / hwinfo.spad_word_size);
 
     // check alignment to number of scratchpad columns
     assert(cfg.input_channels % hwinfo.spad_word_size == 0);
@@ -125,7 +125,7 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
     int line_length_wght_usable = hwinfo.line_length_wght - 1;
 
     // m0 is how many kernels are mapped at once (vertically)
-    cfg.m0 = floor((float)hwinfo.array_size_y / kernel_size);
+    cfg.m0 = floor(1.0 * hwinfo.array_size_y / kernel_size);
     // h1 is how many image rows are processed at once
     // for RS dataflow, each accelerator column processes one input image row
     // value is not needed, so maybe remove it some day
@@ -139,19 +139,19 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
     // each set of rows (accelerator.size_x rows) to the pe array.
     // h2 is how many iterations with one set of m0 kernels are required to process all image rows
     if (cfg.m0 == 0)
-        cfg.h2 = ceil((float)(image_size - kernel_size + 1) / hwinfo.array_size_x);
+        cfg.h2 = ceil(1.0 * (image_size - kernel_size + 1) / hwinfo.array_size_x);
     else
-        cfg.h2 = ceil((float)image_size / hwinfo.array_size_x);
+        cfg.h2 = ceil(1.0 * image_size / hwinfo.array_size_x);
 
-    cfg.c1 = ceil((float)cfg.input_channels * kernel_size / line_length_wght_usable);
-    cfg.c0 = floor((float)cfg.input_channels / cfg.c1);
+    cfg.c1 = ceil(1.0 * cfg.input_channels * kernel_size / line_length_wght_usable);
+    cfg.c0 = floor(1.0 * cfg.input_channels / cfg.c1);
 
     cfg.c0_last_c1 = cfg.input_channels - (cfg.c1 - 1) * cfg.c0;
     cfg.rows_last_h2 = 1; // not required for dataflow 0;
     cfg.c0w0 = cfg.c0 * kernel_size;
     cfg.c0w0_last_c1 = cfg.c0_last_c1 * kernel_size;
 
-    cfg.c1 = ceil((float)cfg.input_channels / cfg.c0);
+    cfg.c1 = ceil(1.0 * cfg.input_channels / cfg.c0);
     cfg.c0_last_c1 = cfg.input_channels - (cfg.c1 - 1) * cfg.c0;
     cfg.c0w0 = cfg.c0 * kernel_size;
     cfg.c0w0_last_c1 = cfg.c0_last_c1 * kernel_size;
@@ -230,7 +230,7 @@ void Conv2D::allocate_spad_auto() {
     bytes_per_kernel = wght_h * wght_w;
     bytes_per_output_channel = (iact_w - wght_w + 1) * (iact_h - wght_h + 1);
     spad_column_stride = hwinfo.spad_size / hwinfo.spad_word_size;
-    channels_per_column = ceil((float)input_channels / hwinfo.spad_word_size);
+    channels_per_column = ceil(1.0 * input_channels / hwinfo.spad_word_size);
 
     // place iact at scratchpad start
     base_iact = 0;
