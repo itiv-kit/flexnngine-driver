@@ -56,7 +56,7 @@ template<typename T> size_t write_text_data(T* buffer, size_t size, size_t strid
     size_t i = 0;
     std::ofstream outfile(path);
     while (i < size && outfile.good()) {
-        outfile << buffer[i++] << ' ';
+        outfile << static_cast<int>(buffer[i++]) << ' ';
         if (i % stride == 0)
             outfile << '\n';
     }
