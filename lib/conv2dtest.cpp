@@ -113,7 +113,7 @@ void Conv2DTest::prepare_data(bool data_from_files, const string& files_path) {
         if (data_from_files) {
             size_t str_bias_idx = files_path.find("_Bi_");
             if (str_bias_idx != string::npos) {
-                stringstream ss(files_path.substr(str_bias_idx));
+                stringstream ss(files_path.substr(str_bias_idx + 4));
                 int file_bias = 0;
                 if (ss >> file_bias)
                     cout << "using bias of " << file_bias << " from testdata path for all channels" << endl;
@@ -133,18 +133,8 @@ void Conv2DTest::prepare_data(bool data_from_files, const string& files_path) {
     buf_zeropoint.resize(output_channels);
     if (requantize) {
         if (data_from_files) {
-            // float tmp[output_channels * 2];
-            // size_t n = read_text_data<float>(tmp, output_channels * 2, files_path + "/_zeropt_scale.txt");
-            // if (output_channels * 2 != n) {
-            //     cout << "warning: only " << n << " zeropt/scale words read, " << output_channels * 2 << " expected." << endl;
-            //     memset(tmp + n, 0, (output_channels * 2 - n) * sizeof(tmp[0]));
-            // }
-            // for (int n = 0; n < output_channels; n++) {
-            //     buf_zeropoint[n] = tmp[2 * n];
-            //     buf_scale[n] = tmp[2 * n + 1];
-            // }
             ifstream infile(files_path + "/_zeropt_scale.txt");
-            for (int n = 0; n < output_channels; n++)
+            for (unsigned n = 0; n < output_channels; n++)
                 if (!(infile >> buf_zeropoint[n] >> buf_scale[n])) {
                     cout << "warning: only " << n << " zeropt/scale tuples read, " << output_channels << " expected." << endl;
                     fill(buf_zeropoint.begin() + n, buf_zeropoint.end(), 0.0);
@@ -265,9 +255,9 @@ void Conv2DTest::prepare_accelerator() {
 
     // also clear the hardware result buffer to ease debugging
     uint8_t* buf = reinterpret_cast<uint8_t*>(recacc_get_buffer(dev)) + base_psum;
-    const unsigned col_size = hwinfo.spad_size / hwinfo.spad_word_size - base_psum;
-    for (unsigned col = 0; col < hwinfo.spad_word_size; col++, buf += hwinfo.spad_word_size)
-        fill(buf, buf + col_size, 0xaa);
+    const unsigned psum_column_size = spad_column_stride - base_psum;
+    for (unsigned col = 0; col < hwinfo.spad_word_size; col++, buf += spad_column_stride)
+        fill(buf, buf + psum_column_size - 1, 0xaa);
 }
 
 // start accelerator

@@ -113,7 +113,9 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
     cfg.stride_iact_w = ceil(1.0 * iact_w / hwinfo.spad_word_size);
     cfg.stride_iact_hw = ceil(1.0 * iact_w * iact_h / hwinfo.spad_word_size);;
     cfg.stride_wght_krnl = bytes_per_kernel;
-    cfg.stride_wght_och = ceil(1.0 * bytes_per_kernel * cfg.input_channels / hwinfo.spad_word_size);
+    // align offset between output channel kernel sets for easy copy
+    cfg.stride_wght_och = make_multiple_of(hwinfo.spad_word_size,
+        lround(ceil(1.0 * bytes_per_kernel * cfg.input_channels / hwinfo.spad_word_size)));
     cfg.stride_psum_och = ceil(1.0 * bytes_per_output_channel / hwinfo.spad_word_size);
 
     // check alignment to number of scratchpad columns
@@ -203,20 +205,25 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
 
 void Conv2D::print_accelerator_parameters() {
     cout << "Accelerator run parameters:" << endl;
-    cout << "  iact_dimension  " << cfg.iact_dimension << endl;
-    cout << "  wght_dimension  " << cfg.wght_dimension << endl;
-    cout << "  input_channels  " << cfg.input_channels << endl;
-    cout << "  output_channels " << cfg.output_channels << endl;
-    cout << "  c1              " << cfg.c1 << endl;
-    cout << "  w1              " << cfg.w1 << endl;
-    cout << "  h2              " << cfg.h2 << endl;
-    cout << "  m0              " << cfg.m0 << endl;
-    cout << "  m0_last_m1      " << cfg.m0_last_m1 << endl;
-    cout << "  rows_last_h2    " << cfg.rows_last_h2 << endl;
-    cout << "  c0              " << cfg.c0 << endl;
-    cout << "  c0_last_c1      " << cfg.c0_last_c1 << endl;
-    cout << "  c0w0            " << cfg.c0w0 << endl;
-    cout << "  c0w0_last_c1    " << cfg.c0w0_last_c1 << endl;
+    cout << "  iact_dimension   " << cfg.iact_dimension << endl;
+    cout << "  wght_dimension   " << cfg.wght_dimension << endl;
+    cout << "  input_channels   " << cfg.input_channels << endl;
+    cout << "  output_channels  " << cfg.output_channels << endl;
+    cout << "  c1               " << cfg.c1 << endl;
+    cout << "  w1               " << cfg.w1 << endl;
+    cout << "  h2               " << cfg.h2 << endl;
+    cout << "  m0               " << cfg.m0 << endl;
+    cout << "  m0_last_m1       " << cfg.m0_last_m1 << endl;
+    cout << "  rows_last_h2     " << cfg.rows_last_h2 << endl;
+    cout << "  c0               " << cfg.c0 << endl;
+    cout << "  c0_last_c1       " << cfg.c0_last_c1 << endl;
+    cout << "  c0w0             " << cfg.c0w0 << endl;
+    cout << "  c0w0_last_c1     " << cfg.c0w0_last_c1 << endl;
+    cout << "  strd iact_w      " << cfg.stride_iact_w << endl;
+    cout << "  strd iact_hw     " << cfg.stride_iact_hw << endl;
+    cout << "  strd wght_krnl   " << cfg.stride_wght_krnl << endl;
+    cout << "  strd wght_och    " << cfg.stride_wght_och << endl;
+    cout << "  strd psum_och    " << cfg.stride_psum_och << endl;
 
     if (dummy_channels)
         cout << "  dummy_channels  " << dummy_channels << " (align to scratchpad layout)" << endl;
@@ -236,10 +243,26 @@ void Conv2D::allocate_spad_auto() {
     base_iact = 0;
 
     // place wght directly after iact, aligned to 32 bytes
+    // should actually use cfg.m0 here, but allocate_spad_auto is usually called before compute_accelerator_parameters. change when supporting more than m0 ochs.
     base_wght = make_multiple_of(32, channels_per_column * bytes_per_channel);
 
     // place psum directly after wght, aligned to 32 bytes
-    base_psum = make_multiple_of(32, base_wght + channels_per_column * bytes_per_kernel);
+    base_psum = make_multiple_of(32, base_wght + output_channels * make_multiple_of(8, channels_per_column * bytes_per_kernel));
+
+    // calculate total allocated memory size per data type in bytes
+    alloc_size_iact = base_wght * hwinfo.spad_word_size;
+    alloc_size_wght = (base_psum - base_wght) * hwinfo.spad_word_size;
+    alloc_size_psum = hwinfo.spad_size - alloc_size_iact - alloc_size_wght;
+
+    // preliminary sanity checks, iact and wght should be fine
+    if (base_iact >= spad_column_stride || alloc_size_iact < bytes_per_channel * input_channels)
+        throw runtime_error("spad allocation size too small for iact data!");
+
+    if (base_wght >= spad_column_stride || alloc_size_wght < bytes_per_kernel * input_channels * output_channels)
+        throw runtime_error("spad allocation size too small for wght data!");
+
+    if (base_psum >= spad_column_stride || bytes_per_output_channel * output_channels >= (spad_column_stride - base_psum) * hwinfo.spad_word_size)
+        throw runtime_error("spad allocation size too small for psum data!");
 }
 
 std::tuple<unsigned, unsigned, unsigned> Conv2D::get_buffer_offsets() const {
@@ -252,8 +275,11 @@ void Conv2D::set_buffer_offsets(unsigned offset_iact, unsigned offset_wght, unsi
     base_psum = offset_psum;
 }
 
-void Conv2D::_copy_in_columnwise_zeropad(int8_t* dst, size_t stride_size, int8_t* buf, size_t bytes_avail) {
+// consumes at most bytes_avail bytes from buf, returns number of remaining bytes in buf
+size_t Conv2D::_copy_in_columnwise_zeropad(int8_t* dst, size_t stride_size, int8_t* buf, size_t bytes_avail) {
+
     for (unsigned col = 0; col < hwinfo.spad_word_size; col++) {
+        // global channels_per_column can be used for both iact and wght channel count per column
         size_t col_bytes = channels_per_column * stride_size;
 
         // try to copy all data for this column from the input buffer
@@ -261,7 +287,7 @@ void Conv2D::_copy_in_columnwise_zeropad(int8_t* dst, size_t stride_size, int8_t
         if (col_bytes_buf > bytes_avail)
             col_bytes_buf = bytes_avail;
         if (col_bytes_buf) {
-            cout << "col " << col << " copy " << col_bytes_buf << " bytes to " << (void*)dst << endl;
+            // cout << "col " << col << " copy " << col_bytes_buf << " bytes to " << (void*)dst << endl;
             // align copy to multiples of spad_word_size, byte-wise access may be illegal
             size_t col_bytes_buf_aligned = make_multiple_of(hwinfo.spad_word_size, col_bytes_buf);
             if (bytes_avail >= col_bytes_buf_aligned)
@@ -272,7 +298,7 @@ void Conv2D::_copy_in_columnwise_zeropad(int8_t* dst, size_t stride_size, int8_t
                 int8_t tmp[col_bytes_buf_aligned];
                 copy(buf, buf + col_bytes_buf, tmp);
                 fill(tmp + col_bytes_buf, tmp + col_bytes_buf_aligned, 0);
-                copy(tmp, tmp +col_bytes_buf_aligned, dst);
+                copy(tmp, tmp + col_bytes_buf_aligned, dst);
             }
             buf += col_bytes;
             bytes_avail -= col_bytes;
@@ -281,7 +307,7 @@ void Conv2D::_copy_in_columnwise_zeropad(int8_t* dst, size_t stride_size, int8_t
 
         // if input buffer is insufficient, pad with zeros (happens when dummy_channels > 0 or insufficient data provided by caller)
         if (col_bytes) {
-            cout << "col " << col << " zero " << col_bytes << " bytes at " << (void*)(dst + col_bytes_buf) << endl;
+            // cout << "col " << col << " zero " << col_bytes << " bytes at " << (void*)(dst + col_bytes_buf) << endl;
             // memset(dst + col_bytes_buf, 0, col_bytes);
             // __builtin_memset(dst + col_bytes_buf, 0, col_bytes);
             fill(dst + col_bytes_buf, dst + col_bytes_buf + col_bytes, 0);
@@ -290,15 +316,18 @@ void Conv2D::_copy_in_columnwise_zeropad(int8_t* dst, size_t stride_size, int8_t
         // advance to next column
         dst += spad_column_stride;
     }
+
+    return bytes_avail;
 }
 
 void Conv2D::copy_data_in(void* iact_buf, size_t iact_bytes, void* wght_buf, size_t wght_bytes) {
     ensure_hwinfo();
 
-    if (iact_bytes > hwinfo.spad_size || iact_bytes > bytes_per_channel * hwinfo.spad_word_size)
+    // these checks are purely based on the input buffer size, not on the conv2d parameters
+    if (iact_bytes > alloc_size_iact)
         throw runtime_error("spad memory too small for iact data!");
 
-    if (wght_bytes > hwinfo.spad_size || wght_bytes > bytes_per_channel * hwinfo.spad_word_size)
+    if (wght_bytes > alloc_size_wght)
         throw runtime_error("spad memory too small for wght data!");
 
     int8_t* spad = static_cast<int8_t*>(recacc_get_buffer(dev));
@@ -308,12 +337,17 @@ void Conv2D::copy_data_in(void* iact_buf, size_t iact_bytes, void* wght_buf, siz
     // but vertically first (ch0+ch1 -> col1, ch2+ch3 -> col2) (for 16 channels)
     // TODO: reduce traffic by just zeroing dummy kernels, channels can be arbitrary data
     int8_t* iact_addr = spad + base_iact;
-    cout << "copy iact from " << (void*)iact_buf << " to " << (void*)iact_addr << " " << iact_bytes << " bytes" << endl;
+    // cout << "copy iact from " << (void*)iact_buf << " to " << (void*)iact_addr << " " << iact_bytes << " bytes" << endl;
     _copy_in_columnwise_zeropad(iact_addr, bytes_per_channel, static_cast<int8_t*>(iact_buf), iact_bytes);
 
     int8_t* wght_addr = spad + base_wght;
-    cout << "copy wght from " << (void*)wght_buf << " to " << (void*)wght_addr << " " << wght_bytes << " bytes" << endl;
-    _copy_in_columnwise_zeropad(wght_addr, bytes_per_kernel, static_cast<int8_t*>(wght_buf), wght_bytes);
+    int8_t* wght_buf_i8 = static_cast<int8_t*>(wght_buf);
+    for (unsigned och = 0; och < cfg.m0; och++) {
+        // cout << "copy och " << och << " wght from " << (void*)wght_buf << " to " << (void*)wght_addr << " " << wght_bytes << " bytes" << endl;
+        wght_bytes = _copy_in_columnwise_zeropad(wght_addr, bytes_per_kernel, wght_buf_i8, wght_bytes);
+        wght_buf_i8 += input_channels * bytes_per_kernel;
+        wght_addr += cfg.stride_wght_och;
+    }
 }
 
 void Conv2D::set_postproc_data(const vector<int16_t>& bias, const vector<float>& factors, const vector<float>& zeropoints) {
@@ -416,17 +450,11 @@ bool Conv2D::wait_until_accelerator_done() {
 
 void Conv2D::copy_data_out(void* psum_buf, size_t psum_bytes) {
     // TODO: support raw mode without postprocessing -> 16bit psums
-    // const size_t expected_bytes = output_size * output_channels * 2;
 
-    // size_t length = expected_bytes;
-    // if (max_size < length)
-    //     length = max_size;
+    // we actually don't care if the buffer is too small, the user does not get all results
+    if (psum_bytes > alloc_size_psum)
+        throw runtime_error("copy_data_out requesting more data than allocated");
 
-    // if (psum_bytes < bytes_per_output_channel * output_channels)
-    //     throw runtime_error("copy_data_out buffer too small");
-    // well we don't care, when the buffer is too small the user does not get all results
-
-    // size_t oc_bytes = make_multiple_of(8, bytes_per_output_channel);
     // limit number of channels to available buffer size
     size_t copy_och_count = psum_bytes / bytes_per_output_channel;
     if (copy_och_count > output_channels)
@@ -438,17 +466,8 @@ void Conv2D::copy_data_out(void* psum_buf, size_t psum_bytes) {
         psum_addr = static_cast<int8_t*>(recacc_get_buffer(dev)) + base_psum
                     + bytes_per_output_channel * (och / hwinfo.spad_word_size)
                     + spad_column_stride * (och % hwinfo.spad_word_size);
-        cout << "copy och " << och << " from " << (void*)psum_addr << " to " << (void*)dst << " " << bytes_per_output_channel << " bytes" << endl;
-        // size_t copy_size_unaligned = bytes_per_output_channel % hwinfo.spad_word_size;
-        // size_t copy_size_aligned = bytes_per_output_channel - copy_size_unaligned;
-        // copy(psum_addr, psum_addr + copy_size_aligned, dst)
-        // if (copy_size_unaligned) {
-        //     int8_t tmp[hwinfo.spad_word_size];
-        //     copy(psum_addr + copy_size_aligned, psum_addr + copy_size_aligned + hwinfo.spad_word_size, tmp);
-        //     copy(tmp, tmp+copy_size_unaligned, dst + copy_size_aligned);
-        // }
 
-        // TODO: improve copy-out. we do manual 32bit reads here to allow 4-byte aligned output channels sizes
+        // TODO: improve copy-out. we do manual 32bit reads here to allow 4-byte aligned output channel sizes
         // i.e. reading 900 bytes for 30x30 output image would fail with memcpy for 2nd channel,
         // cause the target address + 900 is not aligned to 8-byte anymore (and on aarch64 64bit copy is default)
         uint32_t* psum_addr32 = reinterpret_cast<uint32_t*>(psum_addr);

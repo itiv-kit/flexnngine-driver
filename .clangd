@@ -1,4 +1,4 @@
 CompileFlags:
   Add:
     - "-Idriver"
-    - "-I/home/ad9150/git/cecas/recacc-driver/driver"
+    - "-Ilib"

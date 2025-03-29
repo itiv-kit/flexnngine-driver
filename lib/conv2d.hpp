@@ -53,7 +53,7 @@ public:
 
 protected:
     void ensure_hwinfo();
-    void _copy_in_columnwise_zeropad(int8_t* dst, size_t stride_size, int8_t* buf, size_t bytes_avail);
+    size_t _copy_in_columnwise_zeropad(int8_t* dst, size_t stride_size, int8_t* buf, size_t bytes_avail);
 
     unsigned iact_w = 32;
     unsigned iact_h = 32;
@@ -69,6 +69,9 @@ protected:
     unsigned base_iact = 0;
     unsigned base_wght = 0;
     unsigned base_psum = 0;
+    unsigned alloc_size_iact = 0;
+    unsigned alloc_size_wght = 0;
+    unsigned alloc_size_psum = 0;
     unsigned spad_column_stride = 0;
     unsigned channels_per_column = 0;
     unsigned bytes_per_channel = 0;
