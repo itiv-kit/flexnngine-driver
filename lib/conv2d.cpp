@@ -134,6 +134,7 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
     // int h1 = hwinfo.array_size_x;
 
     cfg.w1 = image_size - kernel_size + 1;
+    cfg.rows_last_h2 = 1; // not required for dataflow 0;
     cfg.m0_last_m1 = 1; // not used yet
 
     int size_rows = hwinfo.array_size_x + hwinfo.array_size_y - 1;
@@ -146,14 +147,9 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
         cfg.h2 = ceil(1.0 * image_size / hwinfo.array_size_x);
 
     cfg.c1 = ceil(1.0 * cfg.input_channels * kernel_size / line_length_wght_usable);
-    cfg.c0 = floor(1.0 * cfg.input_channels / cfg.c1);
-
-    cfg.c0_last_c1 = cfg.input_channels - (cfg.c1 - 1) * cfg.c0;
-    cfg.rows_last_h2 = 1; // not required for dataflow 0;
-    cfg.c0w0 = cfg.c0 * kernel_size;
-    cfg.c0w0_last_c1 = cfg.c0_last_c1 * kernel_size;
-
+    cfg.c0 = floor(1.0 * line_length_wght_usable / kernel_size / 8) * 8;
     cfg.c1 = ceil(1.0 * cfg.input_channels / cfg.c0);
+
     cfg.c0_last_c1 = cfg.input_channels - (cfg.c1 - 1) * cfg.c0;
     cfg.c0w0 = cfg.c0 * kernel_size;
     cfg.c0w0_last_c1 = cfg.c0_last_c1 * kernel_size;
