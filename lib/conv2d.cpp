@@ -477,3 +477,31 @@ void Conv2D::copy_data_out(void* psum_buf, size_t psum_bytes) {
     // deassert start bit, this resets the control logic and allows for starting the next iteration
     recacc_control_stop(dev);
 }
+
+bool Conv2D::validate_hw_state() {
+    recacc_status status = recacc_get_status(dev);
+    bool ok = true;
+
+    if (status.spad_iact_full) {
+        ok = false;
+        cerr << "WARNING: hw idle but some spad iact fifos are full" << endl;
+    } else if (!status.spad_iact_empty) {
+        ok = false;
+        cerr << "WARNING: hw idle but not all spad iact fifos empty" << endl;
+    }
+
+    if (status.spad_wght_full) {
+        ok = false;
+        cerr << "WARNING: hw idle but some spad wght fifos are full" << endl;
+    } else if (!status.spad_wght_empty) {
+        ok = false;
+        cerr << "WARNING: hw idle but not all spad wght fifos empty" << endl;
+    }
+
+    if (!status.spad_psum_offsets_empty) {
+        ok = false;
+        cerr << "WARNING: hw idle but not all psum offset fifos empty" << endl;
+    }
+
+    return ok;
+}

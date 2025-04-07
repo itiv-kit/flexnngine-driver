@@ -50,6 +50,7 @@ public:
     void run_accelerator();
     bool wait_until_accelerator_done();
     void copy_data_out(void* psum_buf, size_t psum_bytes);
+    bool validate_hw_state();
 
 protected:
     void ensure_hwinfo();

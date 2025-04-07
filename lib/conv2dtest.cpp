@@ -265,6 +265,7 @@ void Conv2DTest::run_accelerator() {
     if (dryrun)
         return;
 
+    validate_hw_state();
     Conv2D::run_accelerator();
 }
 
@@ -276,6 +277,8 @@ bool Conv2DTest::get_accelerator_results() {
     bool success = wait_until_accelerator_done();
     if (!success)
         return false;
+
+    validate_hw_state();
 
     #ifdef __linux__
     auto t1 = timer::now();
