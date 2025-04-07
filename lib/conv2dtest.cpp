@@ -253,11 +253,13 @@ void Conv2DTest::prepare_accelerator() {
     duration_copy_in = t2 - t1;
     #endif
 
-    // also clear the hardware result buffer to ease debugging
-    uint8_t* buf = reinterpret_cast<uint8_t*>(recacc_get_buffer(dev)) + base_psum;
-    const unsigned psum_column_size = spad_column_stride - base_psum;
-    for (unsigned col = 0; col < hwinfo.spad_word_size; col++, buf += spad_column_stride)
-        fill(buf, buf + psum_column_size - 1, 0xaa);
+    // also clear the hardware result buffer to ease debugging, may only work in debug builds due to alignment issues
+    if (debug_clean_buffers) {
+        uint8_t* buf = reinterpret_cast<uint8_t*>(recacc_get_buffer(dev)) + base_psum;
+        const unsigned psum_column_size = spad_column_stride - base_psum;
+        for (unsigned col = 0; col < hwinfo.spad_word_size; col++, buf += spad_column_stride)
+            fill(buf, buf + psum_column_size - 1, 0xaa);
+    }
 }
 
 // start accelerator
@@ -411,4 +413,8 @@ void Conv2DTest::test_print_buffer() {
 
 void Conv2DTest::set_bias(bool enabled) {
     bias = enabled;
+}
+
+void Conv2DTest::set_debug_clean_buffers(bool enabled) {
+    debug_clean_buffers = enabled;
 }

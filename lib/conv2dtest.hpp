@@ -22,6 +22,7 @@ public:
     void set_dryrun(bool enabled);
     void set_verbose(Verbosity level);
     void set_bias(bool enabled);
+    void set_debug_clean_buffers(bool enabled);
     void prepare_data(bool data_from_files, const std::string& files_path);
     void prepare_accelerator();
     void run_accelerator();
@@ -64,5 +65,6 @@ private:
 
     bool bias;
     bool dryrun;
+    bool debug_clean_buffers;
     Verbosity verbose;
 };

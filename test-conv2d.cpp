@@ -32,6 +32,7 @@ int main(int argc, char** argv) {
     enum activation_mode act_mode = act_none;
     bool zero_bias = false;
     bool requantize = false;
+    bool debug_mode = false;
 
     #ifdef __linux__
     opterr = 0;
@@ -40,7 +41,7 @@ int main(int argc, char** argv) {
     string files_path;
     string output_path;
 
-    while ((c = getopt (argc, argv, "hnd:p:o:s:c:k:u:Bra:")) != -1)
+    while ((c = getopt (argc, argv, "hnd:p:o:s:c:k:u:Bra:D")) != -1)
         switch (c) {
             case 'h':
                 cout << "Usage:" << endl;
@@ -57,6 +58,7 @@ int main(int argc, char** argv) {
                 cout << "-B: use a zero bias for all channels" << endl;
                 cout << "-r: enable requantization" << endl;
                 cout << "-a relu: enable activation (available: relu)" << endl;
+                cout << "-D enable buffer debug mode (fill unused with 0 / 0xaa pattern)" << endl;
                 return 0;
                 break;
             case 'n':
@@ -146,6 +148,7 @@ int main(int argc, char** argv) {
     c2d.set_activation_mode(act_mode);
     c2d.set_requantize(requantize);
     c2d.set_bias(!zero_bias);
+    c2d.set_debug_clean_buffers(debug_mode);
 
     cout << "preparing test data" << endl;
     #ifdef __linux__
