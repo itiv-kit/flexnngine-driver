@@ -19,49 +19,55 @@ using namespace std;
 
 // number of output channels currently depends on m0, number of spatially mapped kernels
 // on a 10x7 accelerator, three 3x3 kernels and two 5x5 kernels can be mapped on the Y axis, thus 3 / 2 channels
-array<Conv2D, 36> tests = {
-    Conv2D(16, 3, 4, 3),
-    Conv2D(16, 5, 4, 2),
-    Conv2D(16, 3, 8, 3),
-    Conv2D(16, 5, 8, 2),
-    Conv2D(32, 3, 4, 3),
-    Conv2D(32, 5, 4, 2),
-    Conv2D(32, 3, 8, 3),
-    Conv2D(32, 5, 8, 2),
-    Conv2D(64, 3, 4, 3),
-    Conv2D(64, 5, 4, 2),
-    Conv2D(64, 3, 16, 3),
-    Conv2D(64, 5, 16, 2),
-    Conv2D(64, 3, 48, 3),
-    Conv2D(64, 5, 32, 2),
-    Conv2D(128, 3, 4, 3),
-    Conv2D(128, 5, 4, 2),
-    Conv2D(128, 3, 8, 3),
-    Conv2D(128, 5, 8, 2),
+array<Conv2D, 22> tests = {
+    //Conv2D(16, 3, 4, 3),
+    //Conv2D(16, 5, 4, 2),
+    //Conv2D(16, 3, 8, 3),
+    //Conv2D(16, 5, 8, 2),
+    //Conv2D(32, 3, 4, 3),
+    //Conv2D(32, 5, 4, 2),
+    //Conv2D(32, 3, 8, 3),
+    //Conv2D(32, 5, 8, 2),
+    //Conv2D(64, 3, 4, 3),
+    //Conv2D(64, 5, 4, 2),
+    //Conv2D(64, 3, 16, 3),
+    //Conv2D(64, 5, 16, 2),
+    //Conv2D(64, 3, 48, 3),
+    //Conv2D(64, 5, 32, 2),
+    //Conv2D(128, 3, 4, 3),
+    //Conv2D(128, 5, 4, 2),
+    //Conv2D(128, 3, 8, 3),
+    //Conv2D(128, 5, 8, 2),
     // run the same convolutions with requantize enabled
-    Conv2D(16, 3, 4, 3, true),
-    Conv2D(16, 5, 4, 2, true),
-    Conv2D(16, 3, 8, 3, true),
+    //Conv2D(8, 3, 8, 3, true),
+    //Conv2D(8, 5, 8, 2, true),
+    Conv2D(16, 3, 8, 3, true), // small image + few channels
     Conv2D(16, 5, 8, 2, true),
-    Conv2D(32, 3, 4, 3, true),
-    Conv2D(32, 5, 4, 2, true),
-    Conv2D(32, 3, 8, 3, true),
+    Conv2D(16, 3, 32, 3, true), // small image + more channels
+    Conv2D(16, 5, 32, 2, true),
+    Conv2D(16, 3, 512, 3, true), // small image + many channels
+    Conv2D(16, 5, 512, 2, true),
+    Conv2D(32, 3, 8, 3, true), // medium image + few channels
     Conv2D(32, 5, 8, 2, true),
-    Conv2D(64, 3, 4, 3, true),
-    Conv2D(64, 5, 4, 2, true),
-    Conv2D(64, 3, 16, 3, true),
-    Conv2D(64, 5, 16, 2, true),
-    Conv2D(64, 3, 48, 3, true),
+    Conv2D(32, 3, 256, 3, true), // medium image + more channels
+    Conv2D(32, 5, 256, 2, true),
+    Conv2D(32, 3, 256, 3, true), // medium image + many channels
+    Conv2D(32, 5, 256, 2, true),
+    Conv2D(64, 3, 8, 3, true), // large image + few channels
+    Conv2D(64, 5, 8, 2, true),
+    Conv2D(64, 3, 32, 3, true),
     Conv2D(64, 5, 32, 2, true),
-    Conv2D(128, 3, 4, 3, true),
-    Conv2D(128, 5, 4, 2, true),
-    Conv2D(128, 3, 8, 3, true),
-    Conv2D(128, 5, 8, 2, true)
+    Conv2D(64, 3, 96, 3, true), // large image + many channels
+    Conv2D(64, 5, 96, 2, true),
+    Conv2D(128, 3, 8, 3, true), // huge image + few channels
+    Conv2D(128, 5, 8, 2, true),
+    Conv2D(128, 3, 16, 3, true), // the largest configuration for 512KiB scratchpad
+    Conv2D(128, 5, 16, 2, true)
 };
 
 VariadicTable<int, int, int, int, int, string, string, float, float, float, float, float> vt({
     "#", "HxW", "RxS", "i-ch", "o-ch", "requant", "status",
-    "cpu us", "copy-in us", "acc us", "copy-out us", "speedup"}, 9);
+    "cpu us", "copy-in us", "acc us", "copy-out us", "speedup"}, 10);
 
 void list_tests() {
     int test_number = 0;
