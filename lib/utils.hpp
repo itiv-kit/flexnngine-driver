@@ -90,22 +90,5 @@ static auto make_multiple_of(auto div, auto value) {
     return value;
 }
 
-static void print_hwinfo(const recacc_hwinfo& hwinfo) {
-    std::cout << "Accelerator configuration:" << std::endl;
-    std::cout << " array size: " << hwinfo.array_size_y
-              << "x" << hwinfo.array_size_x << std::endl;
-    std::cout << " data width:"
-              << " iact " << static_cast<int>(hwinfo.data_width_bits_iact)
-              << " wght " << static_cast<int>(hwinfo.data_width_bits_wght)
-              << " psum " << static_cast<int>(hwinfo.data_width_bits_psum) << std::endl;
-    std::cout << " pe buffers:"
-              << " iact " << hwinfo.line_length_iact
-              << " wght " << hwinfo.line_length_wght
-              << " psum " << hwinfo.line_length_psum << std::endl;
-    std::cout << " scratchpad: " << hwinfo.spad_size
-              << " bytes (word size " << hwinfo.spad_word_size << ")" << std::endl;
-    std::cout << " trs " << hwinfo.trs_dataflow
-              << " postproc " << hwinfo.bias_requant_available
-              << " max och " << static_cast<int>(hwinfo.max_output_channels) << std::endl;
-}
-
+void print_hwinfo(const recacc_hwinfo& hwinfo);
+void memcpy_align_src(void* dst, void* src, size_t size);
