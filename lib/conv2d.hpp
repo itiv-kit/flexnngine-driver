@@ -54,7 +54,7 @@ public:
 
 protected:
     void ensure_hwinfo();
-    size_t _copy_in_columnwise_zeropad(int8_t* dst, size_t stride_size, int8_t* buf, size_t bytes_avail);
+    size_t _copy_in_columnwise(int8_t* dst, size_t stride_size, int8_t* buf, size_t bytes_avail, bool zeropad = true);
 
     unsigned iact_w = 32;
     unsigned iact_h = 32;
