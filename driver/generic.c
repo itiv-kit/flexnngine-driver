@@ -223,4 +223,4 @@ bool recacc_wait(const recacc_device* dev) {
     #else
     return _recacc_wait_baremetal(dev);
     #endif
- }
+}
