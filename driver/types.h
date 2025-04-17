@@ -59,7 +59,7 @@ typedef struct {
     bool ctrl_wght_done:1;
     bool preload_done:1;
     uint32_t reserved:22;
-    bool spad_psum_offsets_empty:1;
+    bool spad_psum_empty:1;
     bool spad_iact_full:1;
     bool spad_iact_empty:1;
     bool spad_wght_full:1;

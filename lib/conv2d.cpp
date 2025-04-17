@@ -503,9 +503,9 @@ bool Conv2D::validate_hw_state() {
         cerr << "WARNING: hw idle but not all spad wght fifos empty" << endl;
     }
 
-    if (!status.spad_psum_offsets_empty) {
+    if (!status.spad_psum_empty) {
         ok = false;
-        cerr << "WARNING: hw idle but not all psum offset fifos empty" << endl;
+        cerr << "WARNING: hw idle but not all psum fifos empty" << endl;
     }
 
     return ok;
