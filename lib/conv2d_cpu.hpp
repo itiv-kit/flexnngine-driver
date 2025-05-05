@@ -71,3 +71,10 @@ template <typename Tin, typename Tout> void requantize_cpu(
         }
     }
 }
+
+template <typename T> void relu_cpu(T* buffer, int count)
+{
+    for (int n = 0; n < count; n++) {
+        buffer[n] = std::max(buffer[n], static_cast<T>(0));
+    }
+}

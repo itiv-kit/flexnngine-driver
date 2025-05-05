@@ -143,8 +143,12 @@ void Conv2DTest::prepare_data(bool data_from_files, const string& files_path) {
                 }
         } else {
             // TODO: provide dynamic scale/zeropoint values instead of fixed ones
-            fill(buf_scale.begin(), buf_scale.end(), 0.0025);
-            fill(buf_zeropoint.begin(), buf_zeropoint.end(), -5);
+            float scale = 0.0025;
+            float bias = -5;
+            if (act_mode == act_relu)
+                bias = -100;
+            fill(buf_scale.begin(), buf_scale.end(), scale);
+            fill(buf_zeropoint.begin(), buf_zeropoint.end(), bias);
         }
 
         if (verbose > Verbosity::Errors)
@@ -199,6 +203,13 @@ void Conv2DTest::run_cpu() {
         input_channels, iact_w, iact_h,
         output_channels, wght_w, wght_h,
         1, 1, 0, 0);
+
+    switch (act_mode) {
+        case act_relu:
+            relu_cpu<int16_t>(buf_result_cpu_psums, output_channels * output_size);
+            break;
+        default:;
+    }
 
     if (requantize)
         requantize_cpu<int16_t, int8_t>(buf_result_cpu_psums, buf_result_cpu,

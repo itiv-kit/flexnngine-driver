@@ -29,6 +29,7 @@ public:
     virtual void set_requantize(bool enabled);
     void set_hwinfo(const recacc_hwinfo& hwinfo);
     void set_recacc_device(recacc_device* dev);
+    void use_interrupts(bool enabled);
 
     std::tuple<unsigned, unsigned> get_image_size() const;
     std::tuple<unsigned, unsigned> get_kernel_size() const;
@@ -36,6 +37,7 @@ public:
     std::string get_parameter_string() const;
     unsigned get_cycle_count() const;
     bool get_requantize() const;
+    enum activation_mode get_activation_mode() const;
 
     void allocate_spad_auto();
     std::tuple<unsigned, unsigned, unsigned> get_buffer_offsets() const;
@@ -65,6 +67,7 @@ protected:
     unsigned dummy_channels = 3;
     unsigned cycles = 0;
     bool requantize = false;
+    bool use_irq = false;
     enum activation_mode act_mode = act_none;
 
     unsigned base_iact = 0;

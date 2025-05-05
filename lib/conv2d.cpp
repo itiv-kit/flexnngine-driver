@@ -63,6 +63,10 @@ void Conv2D::set_recacc_device(recacc_device* dev) {
     this->dev = dev;
 }
 
+void Conv2D::use_interrupts(bool enabled) {
+    use_irq = enabled;
+}
+
 std::tuple<unsigned, unsigned> Conv2D::get_image_size() const {
     return {iact_w, iact_h};
 }
@@ -77,6 +81,10 @@ std::tuple<unsigned, unsigned> Conv2D::get_channel_count() const {
 
 bool Conv2D::get_requantize() const {
     return requantize;
+}
+
+enum activation_mode Conv2D::get_activation_mode() const {
+    return act_mode;
 }
 
 void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
@@ -402,6 +410,16 @@ string Conv2D::get_parameter_string() const {
     oss << wght_w << "x" << wght_h << ", ";
     oss << input_channels << " input channels, ";
     oss << output_channels << " output channels, ";
+    switch (act_mode) {
+        case act_none:
+            oss << "activation none, ";
+            break;
+        case act_relu:
+            oss << "activation relu, ";
+            break;
+        default:
+            oss << "activation UNKNOWN, ";
+    }
     if (requantize)
         oss << "requantize on";
     else
@@ -424,13 +442,13 @@ void Conv2D::run_accelerator() {
             throw runtime_error("activation requested but no postproc support in hardware");
     }
 
-    recacc_control_start(dev, requantize, act_mode);
+    recacc_control_start(dev, requantize, act_mode, use_irq);
 }
 
 // wait for accelerator to finish and copy data back, returns true on success
 bool Conv2D::wait_until_accelerator_done() {
     // wait for accelerator to finish
-    bool success = recacc_wait(dev);
+    bool success = recacc_wait(dev, !use_irq);
     if (!success) {
         cerr << "ERROR: timeout waiting for hardware, probably stuck!" << endl;
         return false;
