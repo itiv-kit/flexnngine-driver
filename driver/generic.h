@@ -38,16 +38,19 @@ bool recacc_poll(const recacc_device* dev);
 // this call blocks until an interrupt is received
 // returns true if wait was successful
 // returns false after a 1-second timeout (hardware stuck)
-bool recacc_wait(const recacc_device* dev);
+bool recacc_wait(const recacc_device* dev, bool poll);
 
 // read the status register and return its value as a decoded struct
 recacc_status recacc_get_status(const recacc_device* dev);
 
 // start the accelerator by writing to the control register
-void recacc_control_start(const recacc_device* dev, bool requantize, enum activation_mode mode);
+void recacc_control_start(const recacc_device* dev, bool requantize, enum activation_mode mode, bool enable_interrupt);
 
 // clear the start bit by writing to the control register
 void recacc_control_stop(const recacc_device* dev);
+
+// clear the interrupt flag in the status register
+void recacc_control_clear_irq(const recacc_device* dev);
 
 // retrieve information about the current hardware design (accelerator size etc.)
 // TODO: CURRENTLY STATICALLY IMPLEMENTED, returns fixed values only

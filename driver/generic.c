@@ -136,20 +136,25 @@ recacc_status recacc_get_status(const recacc_device* dev) {
     return status.decoded;
 }
 
-void recacc_control_start(const recacc_device* dev, bool requantize, enum activation_mode mode) {
+void recacc_control_start(const recacc_device* dev, bool requantize, enum activation_mode mode, bool enable_interrupt) {
     union recacc_control_reg control;
     control.raw = recacc_reg_read(dev, RECACC_REG_IDX_CONTROL);
     control.decoded.reset = 0;
     control.decoded.start = 1;
     control.decoded.requantize = requantize ? 1 : 0;
     control.decoded.activation_mode = (uint8_t) mode;
+    control.decoded.irq_en = enable_interrupt ? 1 : 0;
     recacc_reg_write(dev, RECACC_REG_IDX_CONTROL, control.raw);
 }
 
 void recacc_control_stop(const recacc_device* dev) {
     uint32_t ctrl = recacc_reg_read(dev, RECACC_REG_IDX_CONTROL);
-    ctrl &= ~(1 << RECACC_BIT_IDX_CONTROL_START);
+    ctrl &= ~(1 << RECACC_BIT_IDX_CONTROL_START | 1 << RECACC_BIT_IDX_CONTROL_IRQ_EN);
     recacc_reg_write(dev, RECACC_REG_IDX_CONTROL, ctrl);
+}
+
+void recacc_control_clear_irq(const recacc_device* dev) {
+    recacc_reg_write(dev, RECACC_REG_IDX_STATUS, 0);
 }
 
 void recacc_get_hwinfo(const recacc_device* dev, recacc_hwinfo* hwinfo) {
@@ -193,18 +198,41 @@ bool recacc_poll(const recacc_device* dev) {
 }
 
 #ifdef __linux__
-static inline bool _recacc_wait_linux(const recacc_device* dev) {
-    // TODO: implement with interrupts instead of polling
-    time_t start = time(NULL);
-    while (!recacc_poll(dev)) {
-        usleep(100000);
-        if (time(NULL) > start)
+#include <sys/select.h>
+static inline bool _recacc_wait_linux(const recacc_device* dev, bool poll) {
+    if (poll) {
+        time_t start = time(NULL);
+        while (!recacc_poll(dev)) {
+            usleep(100000);
+            if (time(NULL) > start)
+                return false;
+        }
+        return true;
+    } else {
+        struct timeval timeout;
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        FD_SET(dev->fd, &readfds);
+        int nfds = dev->fd;
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 100000;
+        int ret = select(nfds+1, &readfds, 0, 0, &timeout);
+
+        if (ret < 0) {
+            perror("Error while waiting for data");
+            return false;
+        }
+
+        if (FD_ISSET(dev->fd, &readfds)) {
+            uint32_t irq_count = 0;
+            size_t cnt = read(dev->fd, &irq_count, sizeof(irq_count));
+            return cnt == 4 && irq_count > 0;
+        } else
             return false;
     }
-    return true;
 }
 #else
-static inline bool _recacc_wait_baremetal(const recacc_device* dev) {
+static inline bool _recacc_wait_baremetal(const recacc_device* dev, bool poll) {
     // TODO: implement with interrupts instead of polling
     int timeout = 1000;
     while (timeout && !recacc_poll(dev)) {
@@ -217,10 +245,10 @@ static inline bool _recacc_wait_baremetal(const recacc_device* dev) {
 }
 #endif
 
-bool recacc_wait(const recacc_device* dev) {
+bool recacc_wait(const recacc_device* dev, bool poll) {
     #ifdef __linux__
-    return _recacc_wait_linux(dev);
+    return _recacc_wait_linux(dev, poll);
     #else
-    return _recacc_wait_baremetal(dev);
+    return _recacc_wait_baremetal(dev, poll);
     #endif
 }

@@ -58,7 +58,8 @@ typedef struct {
     bool ctrl_iact_done:1;
     bool ctrl_wght_done:1;
     bool preload_done:1;
-    uint32_t reserved:22;
+    bool irq:1;
+    uint32_t reserved:21;
     bool spad_psum_empty:1;
     bool spad_iact_full:1;
     bool spad_iact_empty:1;
@@ -76,6 +77,7 @@ typedef struct {
     bool start:1;
     bool requantize:1;
     uint8_t activation_mode:3;
+    bool irq_en:1;
 } __attribute__((packed)) recacc_control;
 
 union recacc_control_reg {
