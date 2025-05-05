@@ -146,8 +146,7 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
     else
         cfg.h2 = ceil(1.0 * image_size / hwinfo.array_size_x);
 
-    cfg.c1 = ceil(1.0 * cfg.input_channels * kernel_size / line_length_wght_usable);
-    cfg.c0 = floor(1.0 * line_length_wght_usable / kernel_size / 8) * 8;
+    cfg.c0 = floor(1.0 * line_length_wght_usable / kernel_size / hwinfo.spad_word_size) * hwinfo.spad_word_size;
     cfg.c1 = ceil(1.0 * cfg.input_channels / cfg.c0);
 
     cfg.c0_last_c1 = cfg.input_channels - (cfg.c1 - 1) * cfg.c0;
@@ -232,6 +231,9 @@ void Conv2D::allocate_spad_auto() {
     bytes_per_channel = iact_h * iact_w;
     bytes_per_kernel = wght_h * wght_w;
     bytes_per_output_channel = (iact_w - wght_w + 1) * (iact_h - wght_h + 1);
+    if (!requantize)
+        bytes_per_output_channel *= 2;
+
     spad_column_stride = hwinfo.spad_size / hwinfo.spad_word_size;
     channels_per_column = ceil(1.0 * input_channels / hwinfo.spad_word_size);
 

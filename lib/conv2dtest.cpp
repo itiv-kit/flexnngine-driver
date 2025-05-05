@@ -160,7 +160,8 @@ void Conv2DTest::prepare_data(bool data_from_files, const string& files_path) {
     alloc_bytes_acc = requantize ? num_result_elements_aligned : num_result_elements_aligned * 2;
     buf_result_cpu = new int8_t[num_result_elements * 2]; // cpu always needs a full-psum buffer (first conv2d, then requantize if enabled)
     buf_result_acc = new int8_t[alloc_bytes_acc];
-    // setup helper pointer to access psums when requantize is disabled
+    // setup helper pointers to access raw psums before requantization
+    buf_result_cpu_psums = reinterpret_cast<int16_t*>(buf_result_cpu);
     buf_result_acc_psums = reinterpret_cast<int16_t*>(buf_result_acc);
     if (data_from_files) {
         buf_result_files = new int8_t[num_result_elements * 2];
@@ -194,13 +195,13 @@ void Conv2DTest::run_cpu() {
     auto t1 = timer::now();
     #endif
 
-    conv2d_cpu<int8_t, int16_t>(buf_iact, buf_wght, buf_bias.data(), reinterpret_cast<int16_t*>(buf_result_cpu),
+    conv2d_cpu<int8_t, int16_t>(buf_iact, buf_wght, buf_bias.data(), buf_result_cpu_psums,
         input_channels, iact_w, iact_h,
         output_channels, wght_w, wght_h,
         1, 1, 0, 0);
 
     if (requantize)
-        requantize_cpu<int16_t, int8_t>(reinterpret_cast<int16_t*>(buf_result_cpu), buf_result_cpu,
+        requantize_cpu<int16_t, int8_t>(buf_result_cpu_psums, buf_result_cpu,
             buf_scale.data(), buf_zeropoint.data(),
             output_channels, output_size);
 
