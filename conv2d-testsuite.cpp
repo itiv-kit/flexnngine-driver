@@ -17,56 +17,45 @@ extern "C" {
 
 using namespace std;
 
+array<tuple<bool, bool, bool>, 4> variants = {
+    // enable requantize, relu activation, use alternative dataflow
+    make_tuple(false, false, false),
+    make_tuple(true,  false, false),
+    make_tuple(false, true,  false),
+    make_tuple(true,  true,  false),
+};
+
 // number of output channels currently depends on m0, number of spatially mapped kernels
 // on a 10x7 accelerator, three 3x3 kernels and two 5x5 kernels can be mapped on the Y axis, thus 3 / 2 channels
 array<Conv2D, 22> tests = {
-    //Conv2D(16, 3, 4, 3),
-    //Conv2D(16, 5, 4, 2),
-    //Conv2D(16, 3, 8, 3),
-    //Conv2D(16, 5, 8, 2),
-    //Conv2D(32, 3, 4, 3),
-    //Conv2D(32, 5, 4, 2),
-    //Conv2D(32, 3, 8, 3),
-    //Conv2D(32, 5, 8, 2),
-    //Conv2D(64, 3, 4, 3),
-    //Conv2D(64, 5, 4, 2),
-    //Conv2D(64, 3, 16, 3),
-    //Conv2D(64, 5, 16, 2),
-    //Conv2D(64, 3, 48, 3),
-    //Conv2D(64, 5, 32, 2),
-    //Conv2D(128, 3, 4, 3),
-    //Conv2D(128, 5, 4, 2),
-    //Conv2D(128, 3, 8, 3),
-    //Conv2D(128, 5, 8, 2),
-    // run the same convolutions with requantize enabled
     //Conv2D(8, 3, 8, 3, true),
     //Conv2D(8, 5, 8, 2, true),
-    Conv2D(16, 3, 8, 3, true), // small image + few channels
-    Conv2D(16, 5, 8, 2, true),
-    Conv2D(16, 3, 32, 3, true), // small image + more channels
-    Conv2D(16, 5, 32, 2, true),
-    Conv2D(16, 3, 512, 3, true), // small image + many channels
-    Conv2D(16, 5, 512, 2, true),
-    Conv2D(32, 3, 8, 3, true), // medium image + few channels
-    Conv2D(32, 5, 8, 2, true),
-    Conv2D(32, 3, 256, 3, true), // medium image + more channels
-    Conv2D(32, 5, 256, 2, true),
-    Conv2D(32, 3, 256, 3, true), // medium image + many channels
-    Conv2D(32, 5, 256, 2, true),
-    Conv2D(64, 3, 8, 3, true), // large image + few channels
-    Conv2D(64, 5, 8, 2, true),
-    Conv2D(64, 3, 32, 3, true),
-    Conv2D(64, 5, 32, 2, true),
-    Conv2D(64, 3, 96, 3, true), // large image + many channels
-    Conv2D(64, 5, 96, 2, true),
-    Conv2D(128, 3, 8, 3, true), // huge image + few channels
-    Conv2D(128, 5, 8, 2, true),
-    Conv2D(128, 3, 16, 3, true), // the largest configuration for 512KiB scratchpad
-    Conv2D(128, 5, 16, 2, true)
+    Conv2D(16, 3, 8, 3), // small image + few channels
+    Conv2D(16, 5, 8, 2),
+    Conv2D(16, 3, 32, 3), // small image + more channels
+    Conv2D(16, 5, 32, 2),
+    Conv2D(16, 3, 512, 3), // small image + many channels
+    Conv2D(16, 5, 512, 2),
+    Conv2D(32, 3, 8, 3), // medium image + few channels
+    Conv2D(32, 5, 8, 2),
+    Conv2D(32, 3, 256, 3), // medium image + more channels
+    Conv2D(32, 5, 256, 2),
+    Conv2D(32, 3, 256, 3), // medium image + many channels
+    Conv2D(32, 5, 256, 2),
+    Conv2D(64, 3, 8, 3), // large image + few channels
+    Conv2D(64, 5, 8, 2),
+    Conv2D(64, 3, 32, 3),
+    Conv2D(64, 5, 32, 2),
+    Conv2D(64, 3, 96, 3), // large image + many channels
+    Conv2D(64, 5, 96, 2),
+    Conv2D(128, 3, 8, 3), // huge image + few channels
+    Conv2D(128, 5, 8, 2),
+    Conv2D(128, 3, 16, 3), // the largest configuration for 512KiB scratchpad
+    Conv2D(128, 5, 16, 2)
 };
 
-VariadicTable<int, int, int, int, int, string, string, float, float, float, float, float> vt({
-    "#", "HxW", "RxS", "i-ch", "o-ch", "requant", "status",
+VariadicTable<int, int, int, int, int, string, string, string, float, float, float, float, float> vt({
+    "#", "HxW", "RxS", "i-ch", "o-ch", "act", "requant", "status",
     "cpu us", "copy-in us", "acc us", "copy-out us", "speedup"}, 10);
 
 void list_tests() {
@@ -113,12 +102,24 @@ bool run_test(recacc_device* dev, Conv2D& test) {
 
     float speedup = testrun.duration_cpu / (testrun.duration_copy_in + testrun.duration_acc + testrun.duration_copy_out);
 
+    string activation_str{"none"};
+    switch (testrun.get_activation_mode()) {
+        case act_none:
+            break;
+        case act_relu:
+            activation_str = "relu";
+            break;
+        default:
+            activation_str = "unknown";
+    }
+
     vt.addRow(
         test_number,
         get<0>(testrun.get_image_size()),
         get<0>(testrun.get_kernel_size()),
         get<0>(testrun.get_channel_count()),
         get<1>(testrun.get_channel_count()),
+        activation_str,
         testrun.get_requantize() ? "yes" : "no",
         success ? "SUCCESS" : "FAILED",
         testrun.duration_cpu.count(),
@@ -211,17 +212,23 @@ int main(int argc, char** argv) {
                         VariadicTableColumnFormat::FIXED,
                         VariadicTableColumnFormat::AUTO,
                         VariadicTableColumnFormat::AUTO,
+                        VariadicTableColumnFormat::AUTO,
                         VariadicTableColumnFormat::FIXED,
                         VariadicTableColumnFormat::FIXED,
                         VariadicTableColumnFormat::FIXED,
                         VariadicTableColumnFormat::FIXED,
                         VariadicTableColumnFormat::FIXED});
-    vt.setColumnPrecision({0,0,0,0,0,0,0,3,3,3,3,2});
+    vt.setColumnPrecision({0,0,0,0,0,0,0,0,3,3,3,3,2});
 
     cout << "Running tests..." << endl;
-    for (auto t : tests) {
-        run_test(&dev, t);
-        recacc_reset(&dev);
+    for (auto [requantize, relu, dataflow] : variants) {
+        for (auto t : tests) {
+            t.set_requantize(requantize);
+            t.set_activation_mode(relu ? act_relu : act_none);
+            // TODO: implement switching to alternative dataflow
+            run_test(&dev, t);
+            recacc_reset(&dev);
+        }
     }
 
     // print a nice result table
