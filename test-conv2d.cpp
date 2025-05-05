@@ -5,10 +5,9 @@
 #include <unistd.h>
 
 #include "lib/conv2dtest.hpp"
-#include "types.h"
 
 extern "C" {
-    #include "driver/driver.h"
+    #include <driver.h>
 }
 
 #define DEFAULT_DEVICE "/dev/uio4"
@@ -21,6 +20,7 @@ void dump_status_register(recacc_device* dev) {
     cout << "Status register 0x" << hex << setfill('0') << setw(8) << status.raw << dec << ":" << endl;
     cout << "  ready     " << status.decoded.ready << endl;
     cout << "  done      " << status.decoded.done << endl;
+    cout << "  irq       " << status.decoded.irq << endl;
     cout << "  iact_done " << status.decoded.ctrl_iact_done << endl;
     cout << "  wght_done " << status.decoded.ctrl_wght_done << endl;
     cout << "  preload   " << status.decoded.preload_done << endl;
@@ -33,6 +33,7 @@ int main(int argc, char** argv) {
     bool zero_bias = false;
     bool requantize = false;
     bool debug_mode = false;
+    bool interrupts = false;
 
     #ifdef __linux__
     opterr = 0;
@@ -41,7 +42,7 @@ int main(int argc, char** argv) {
     string files_path;
     string output_path;
 
-    while ((c = getopt (argc, argv, "hnd:p:o:s:c:k:u:Bra:D")) != -1)
+    while ((c = getopt (argc, argv, "hnd:p:o:s:c:k:u:Bra:DIP")) != -1)
         switch (c) {
             case 'h':
                 cout << "Usage:" << endl;
@@ -59,6 +60,7 @@ int main(int argc, char** argv) {
                 cout << "-r: enable requantization" << endl;
                 cout << "-a relu: enable activation (available: relu)" << endl;
                 cout << "-D enable buffer debug mode (fill unused with 0 / 0xaa pattern)" << endl;
+                cout << "-I/-P use interrupts or polling (default: polling)" << endl;
                 return 0;
                 break;
             case 'n':
@@ -91,8 +93,14 @@ int main(int argc, char** argv) {
             case 'r':
                 requantize = true;
                 break;
+            case 'I':
+                interrupts = true;
+                break;
+            case 'P':
+                interrupts = false;
+                break;
             case 'a':
-                if (strcmp(optarg, "relu"))
+                if (strcmp(optarg, "relu") == 0)
                     act_mode = act_relu;
                 else {
                     cerr << "Unknown activation mode " << string(optarg) << endl;
@@ -100,10 +108,11 @@ int main(int argc, char** argv) {
                 }
                 break;
             case '?':
-                if (optopt == 'c')
-                    cerr << "Option -" << optopt << " requires an argument." << endl;
-                else if (isprint (optopt))
-                    cerr << "Unknown option -" << optopt << endl;
+                if (optopt == 'd' || optopt == 'p' || optopt == 'o' || optopt == 's' ||
+                    optopt == 'c' || optopt == 'k' || optopt == 'u' || optopt == 'a')
+                    cerr << "Option -" << char(optopt) << " requires an argument." << endl;
+                else if (isprint(optopt))
+                    cerr << "Unknown option -" << char(optopt) << endl;
                 else
                     cerr << "Unknown option character " << static_cast<int>(optopt) << endl;
                 return 1;
@@ -149,6 +158,7 @@ int main(int argc, char** argv) {
     c2d.set_requantize(requantize);
     c2d.set_bias(!zero_bias);
     c2d.set_debug_clean_buffers(debug_mode);
+    c2d.use_interrupts(interrupts);
 
     cout << "preparing test data" << endl;
     #ifdef __linux__
