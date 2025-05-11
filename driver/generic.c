@@ -68,15 +68,19 @@ int recacc_config_read(const recacc_device* dev, recacc_config* cfg) {
     cfg->c0_last_c1       = recacc_reg_read(dev, RECACC_REG_IDX_CONV_C0_LAST_C1);
     cfg->c0w0             = recacc_reg_read(dev, RECACC_REG_IDX_CONV_C0W0);
     cfg->c0w0_last_c1     = recacc_reg_read(dev, RECACC_REG_IDX_CONV_C0W0_LAST_C1);
+    cfg->psum_throttle    = recacc_reg_read(dev, RECACC_REG_IDX_PSUM_THROTTLE);
+    uint32_t pad_reg      = recacc_reg_read(dev, RECACC_REG_IDX_CONV_PADDING);
+    cfg->pad_x            = pad_reg >> 0 & 0xff;
+    cfg->pad_y            = pad_reg >> 8 & 0xff;
     cfg->base_addr_iact   = recacc_reg_read(dev, RECACC_REG_IDX_BASE_ADDR_IACT);
     cfg->base_addr_wght   = recacc_reg_read(dev, RECACC_REG_IDX_BASE_ADDR_WGHT);
     cfg->base_addr_psum   = recacc_reg_read(dev, RECACC_REG_IDX_BASE_ADDR_PSUM);
+    cfg->base_addr_pad    = recacc_reg_read(dev, RECACC_REG_IDX_BASE_ADDR_PAD);
     cfg->stride_iact_w    = recacc_reg_read(dev, RECACC_REG_IDX_STRIDE_IACT_W);
     cfg->stride_iact_hw   = recacc_reg_read(dev, RECACC_REG_IDX_STRIDE_IACT_HW);
     cfg->stride_wght_krnl = recacc_reg_read(dev, RECACC_REG_IDX_STRIDE_WGHT_KRNL);
     cfg->stride_wght_och  = recacc_reg_read(dev, RECACC_REG_IDX_STRIDE_WGHT_OCH);
     cfg->stride_psum_och  = recacc_reg_read(dev, RECACC_REG_IDX_STRIDE_PSUM_OCH);
-    cfg->magic            = recacc_reg_read(dev, RECACC_REG_IDX_MAGIC);
 
     if (dev->hw_revision >= 100) // stride will probably not be supported in the near future
         cfg->stride      = recacc_reg_read(dev, RECACC_REG_IDX_CONV_STRIDE);
@@ -102,9 +106,12 @@ int recacc_config_write(const recacc_device* dev, const recacc_config* cfg) {
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_C0_LAST_C1, cfg->c0_last_c1);
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_C0W0, cfg->c0w0);
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_C0W0_LAST_C1, cfg->c0w0_last_c1);
+    recacc_reg_write(dev, RECACC_REG_IDX_PSUM_THROTTLE, cfg->psum_throttle);
+    recacc_reg_write(dev, RECACC_REG_IDX_CONV_PADDING, cfg->pad_y << 8 | cfg->pad_x);
     recacc_reg_write(dev, RECACC_REG_IDX_BASE_ADDR_IACT, cfg->base_addr_iact);
     recacc_reg_write(dev, RECACC_REG_IDX_BASE_ADDR_WGHT, cfg->base_addr_wght);
     recacc_reg_write(dev, RECACC_REG_IDX_BASE_ADDR_PSUM, cfg->base_addr_psum);
+    recacc_reg_write(dev, RECACC_REG_IDX_BASE_ADDR_PAD, cfg->base_addr_pad);
     recacc_reg_write(dev, RECACC_REG_IDX_STRIDE_IACT_W, cfg->stride_iact_w);
     recacc_reg_write(dev, RECACC_REG_IDX_STRIDE_IACT_HW, cfg->stride_iact_hw);
     recacc_reg_write(dev, RECACC_REG_IDX_STRIDE_WGHT_KRNL, cfg->stride_wght_krnl);
@@ -136,7 +143,7 @@ recacc_status recacc_get_status(const recacc_device* dev) {
     return status.decoded;
 }
 
-void recacc_control_start(const recacc_device* dev, bool requantize, enum activation_mode mode, bool enable_interrupt) {
+void recacc_control_start(const recacc_device* dev, bool requantize, enum activation_mode mode, bool enable_interrupt, bool enable_padding) {
     union recacc_control_reg control;
     control.raw = recacc_reg_read(dev, RECACC_REG_IDX_CONTROL);
     control.decoded.reset = 0;
@@ -144,6 +151,7 @@ void recacc_control_start(const recacc_device* dev, bool requantize, enum activa
     control.decoded.requantize = requantize ? 1 : 0;
     control.decoded.activation_mode = (uint8_t) mode;
     control.decoded.irq_en = enable_interrupt ? 1 : 0;
+    control.decoded.padding = enable_padding ? 1 : 0;
     recacc_reg_write(dev, RECACC_REG_IDX_CONTROL, control.raw);
 }
 

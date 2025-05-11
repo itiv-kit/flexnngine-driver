@@ -10,30 +10,33 @@ typedef struct {
 } recacc_device;
 
 typedef struct {
-    uint32_t iact_dimension;  // width and height of input activations (rectangular shape)
-    uint32_t wght_dimension;  // width and height of kernels
-    uint32_t input_channels;  // number of input channels / kernels
-    uint32_t output_channels; // number of output channels
-    uint32_t c1;
-    uint32_t w1;
-    uint32_t h2;
-    uint32_t m0;
-    uint32_t m0_last_m1;
-    uint32_t rows_last_h2;
-    uint32_t c0;
-    uint32_t c0_last_c1;
-    uint32_t c0w0;
-    uint32_t c0w0_last_c1;
+    uint16_t iact_dimension;  // width and height of input activations (rectangular shape)
+    uint8_t  wght_dimension;  // width and height of kernels
+    uint16_t input_channels;  // number of input channels / kernels
+    uint16_t output_channels; // number of output channels
+    uint16_t c1;
+    uint16_t w1;
+    uint16_t h2;
+    uint16_t m0;
+    uint16_t m0_last_m1;
+    uint16_t rows_last_h2;
+    uint16_t c0;
+    uint16_t c0_last_c1;
+    uint16_t c0w0;
+    uint16_t c0w0_last_c1;
+    uint8_t  psum_throttle;
+    uint8_t  pad_x;
+    uint8_t  pad_y;
     uint32_t base_addr_iact;
     uint32_t base_addr_wght;
     uint32_t base_addr_psum;
+    uint32_t base_addr_pad;
     uint32_t stride_iact_w;
     uint32_t stride_iact_hw;
-    uint32_t stride_wght_krnl;
-    uint32_t stride_wght_och;
-    uint32_t stride_psum_och;
-    uint32_t stride;
-    uint32_t magic;
+    uint8_t  stride_wght_krnl;
+    uint16_t stride_wght_och;
+    uint16_t stride_psum_och;
+    uint8_t  stride;
 } recacc_config;
 
 typedef struct {
@@ -78,6 +81,7 @@ typedef struct {
     bool requantize:1;
     uint8_t activation_mode:3;
     bool irq_en:1;
+    bool padding:1;
 } __attribute__((packed)) recacc_control;
 
 union recacc_control_reg {
