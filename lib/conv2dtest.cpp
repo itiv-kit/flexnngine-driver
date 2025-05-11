@@ -65,9 +65,13 @@ void Conv2DTest::ensure_hwinfo() {
         hwinfo.line_length_wght = 64;
         hwinfo.line_length_psum = 128;
         hwinfo.spad_size = 0x80000;
+        hwinfo.spad_word_size = 8;
         hwinfo.data_width_bits_iact = 8;
         hwinfo.data_width_bits_wght = 8;
         hwinfo.data_width_bits_psum = 16;
+        hwinfo.max_output_channels = 10;
+        hwinfo.trs_dataflow = false;
+        hwinfo.bias_requant_available = true;
     }
 
     Conv2D::ensure_hwinfo();
@@ -158,7 +162,10 @@ void Conv2DTest::prepare_data(bool data_from_files, const string& files_path) {
         fill(buf_zeropoint.begin(), buf_zeropoint.end(), 0.0);
     }
 
-    output_size = (iact_w - wght_w + 1) * (iact_h - wght_h + 1); // no padding
+    if (padding)
+        output_size = iact_w * iact_h;
+    else
+        output_size = (iact_w - wght_w + 1) * (iact_h - wght_h + 1);
     num_result_elements = output_size * output_channels;
     num_result_elements_aligned = make_multiple_of(8, num_result_elements);
     alloc_bytes_acc = requantize ? num_result_elements_aligned : num_result_elements_aligned * 2;
@@ -179,11 +186,15 @@ void Conv2DTest::prepare_data(bool data_from_files, const string& files_path) {
             cout << "warning: only " << n << " result words read, " << num_result_elements << " expected." << endl;
     }
 
-    if (verbose > Verbosity::Errors)
+    if (verbose > Verbosity::Errors) {
         cout << "using "
             << num_iact_elements * sizeof(buf_iact[0]) << " bytes iact, "
             << num_wght_elements * sizeof(buf_wght[0]) << " bytes wght, "
             << num_result_elements * sizeof(buf_result_acc[0]) << " bytes psum" << endl;
+        cout << "options: "
+            << "padding " << (padding ? "on" : "off")
+            << " activation " << (act_mode == act_relu ? "relu" : "off") << endl;
+    }
 
     uint32_t total_data_size = num_iact_elements * sizeof(buf_iact[0])
                              + num_wght_elements * sizeof(buf_wght[0])
@@ -202,11 +213,11 @@ void Conv2DTest::run_cpu() {
     conv2d_cpu<int8_t, int16_t>(buf_iact, buf_wght, buf_bias.data(), buf_result_cpu_psums,
         input_channels, iact_w, iact_h,
         output_channels, wght_w, wght_h,
-        1, 1, 0, 0);
+        1, 1, cfg.pad_x, cfg.pad_y);
 
     switch (act_mode) {
         case act_relu:
-            relu_cpu<int16_t>(buf_result_cpu_psums, output_channels * output_size);
+            relu_cpu<int16_t>(buf_result_cpu_psums, num_result_elements);
             break;
         default:;
     }
@@ -231,7 +242,7 @@ void Conv2DTest::prepare_accelerator() {
     allocate_spad_auto();
     if (verbose > Verbosity::Errors) {
         auto offs = get_buffer_offsets();
-        cout << "spad alloc iact " << get<0>(offs) << " wght " << get<1>(offs) << " psum " << get<2>(offs) << endl;
+        cout << "spad alloc iact " << get<0>(offs) << " wght " << get<1>(offs) << " psum " << get<2>(offs) << " pad " << get<3>(offs) << endl;
     }
 
     compute_accelerator_parameters(true);
@@ -368,11 +379,13 @@ bool Conv2DTest::verify() {
 }
 
 void Conv2DTest::write_data(const string& output_path) {
+    const unsigned output_width = padding ? iact_w : iact_w - wght_w + 1;
+
     if (requantize) {
         size_t written = write_text_data<int8_t>(
             buf_result_cpu,
             num_result_elements,
-            iact_w - wght_w + 1,
+            output_width,
             output_path + "/_output_cpu.txt");
         if (written != num_result_elements)
             cerr << "wrote only " << written << " elements to _output_cpu.txt" << endl;
@@ -380,7 +393,7 @@ void Conv2DTest::write_data(const string& output_path) {
         written = write_text_data<int8_t>(
             buf_result_acc,
             num_result_elements,
-            iact_w - wght_w + 1,
+            output_width,
             output_path + "/_output_acc.txt");
         if (written != num_result_elements)
             cerr << "wrote only " << written << " elements to _output_acc.txt" << endl;
@@ -388,7 +401,7 @@ void Conv2DTest::write_data(const string& output_path) {
         size_t written = write_text_data<int16_t>(
             reinterpret_cast<int16_t*>(buf_result_cpu),
             num_result_elements,
-            iact_w - wght_w + 1,
+            output_width,
             output_path + "/_output_cpu.txt");
         if (written != num_result_elements)
             cerr << "wrote only " << written << " elements to _output_cpu.txt" << endl;
@@ -396,7 +409,7 @@ void Conv2DTest::write_data(const string& output_path) {
         written = write_text_data<int16_t>(
             buf_result_acc_psums,
             num_result_elements,
-            iact_w - wght_w + 1,
+            output_width,
             output_path + "/_output_acc.txt");
         if (written != num_result_elements)
             cerr << "wrote only " << written << " elements to _output_acc.txt" << endl;

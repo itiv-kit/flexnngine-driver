@@ -67,6 +67,10 @@ void Conv2D::use_interrupts(bool enabled) {
     use_irq = enabled;
 }
 
+void Conv2D::set_padding_mode(bool enable_same_size_padding) {
+    padding = enable_same_size_padding;
+}
+
 std::tuple<unsigned, unsigned> Conv2D::get_image_size() const {
     return {iact_w, iact_h};
 }
@@ -79,6 +83,9 @@ std::tuple<unsigned, unsigned> Conv2D::get_channel_count() const {
     return {input_channels, output_channels};
 }
 
+bool Conv2D::get_padding_mode() const {
+    return padding;
+}
 bool Conv2D::get_requantize() const {
     return requantize;
 }
@@ -92,14 +99,11 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
 
     assert(iact_w > 0);
     assert(wght_w > 0);
+    assert(iact_w == iact_h);
+    assert(wght_w == wght_h);
     assert(input_channels > 0);
     assert(output_channels > 0);
     assert(hwinfo.array_size_x > 0);
-
-    assert(iact_w == iact_h);
-    const int image_size = iact_w;
-    assert(wght_w == wght_h);
-    const int kernel_size = wght_w;
 
     // fixup by default. this could change in the future.
     if (fixup_channel_alignment) {
@@ -111,13 +115,14 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
         dummy_channels = 0;
     }
 
-    cfg.iact_dimension = image_size;
-    cfg.wght_dimension = kernel_size;
+    cfg.iact_dimension = iact_w; // equals iact_h, for now only square images are supported
+    cfg.wght_dimension = wght_w; // equals wght_h, for now only square kernels are supported
     cfg.input_channels = input_channels + dummy_channels;
     cfg.output_channels = output_channels;
     cfg.base_addr_iact = base_iact;
     cfg.base_addr_wght = base_wght;
     cfg.base_addr_psum = base_psum;
+    cfg.base_addr_pad = base_padding;
     cfg.stride_iact_w = ceil(1.0 * iact_w / hwinfo.spad_word_size);
     cfg.stride_iact_hw = ceil(1.0 * iact_w * iact_h / hwinfo.spad_word_size);;
     cfg.stride_wght_krnl = bytes_per_kernel;
@@ -135,13 +140,19 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
     int line_length_wght_usable = hwinfo.line_length_wght - 1;
 
     // m0 is how many kernels are mapped at once (vertically)
-    cfg.m0 = floor(1.0 * hwinfo.array_size_y / kernel_size);
+    cfg.m0 = floor(1.0 * hwinfo.array_size_y / wght_h);
     // h1 is how many image rows are processed at once
     // for RS dataflow, each accelerator column processes one input image row
-    // value is not needed, so maybe remove it some day
     // int h1 = hwinfo.array_size_x;
 
-    cfg.w1 = image_size - kernel_size + 1;
+    // only symmetric same-size padding for now. hardware can do anything from 0..kernel_size-1 on each edge
+    if (padding) {
+        cfg.w1 = iact_w;
+        cfg.pad_x = cfg.pad_y = (wght_w - 1) / 2;
+    } else {
+        cfg.w1 = iact_w - wght_w + 1;
+        cfg.pad_x = cfg.pad_y = 0;
+    }
     cfg.rows_last_h2 = 1; // not required for dataflow 0;
     cfg.m0_last_m1 = 1; // not used yet
 
@@ -150,26 +161,29 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
     // each set of rows (accelerator.size_x rows) to the pe array.
     // h2 is how many iterations with one set of m0 kernels are required to process all image rows
     if (cfg.m0 == 0)
-        cfg.h2 = ceil(1.0 * (image_size - kernel_size + 1) / hwinfo.array_size_x);
+        cfg.h2 = ceil(1.0 * (iact_h - wght_h + 1) / hwinfo.array_size_x);
     else
-        cfg.h2 = ceil(1.0 * image_size / hwinfo.array_size_x);
+        cfg.h2 = ceil(1.0 * iact_h / hwinfo.array_size_x);
 
-    cfg.c0 = floor(1.0 * line_length_wght_usable / kernel_size / hwinfo.spad_word_size) * hwinfo.spad_word_size;
+    cfg.c0 = min(cfg.input_channels, static_cast<uint16_t>(floor(1.0 * line_length_wght_usable / wght_w / hwinfo.spad_word_size) * hwinfo.spad_word_size));
     cfg.c1 = ceil(1.0 * cfg.input_channels / cfg.c0);
 
     cfg.c0_last_c1 = cfg.input_channels - (cfg.c1 - 1) * cfg.c0;
-    cfg.c0w0 = cfg.c0 * kernel_size;
-    cfg.c0w0_last_c1 = cfg.c0_last_c1 * kernel_size;
+    cfg.c0w0 = cfg.c0 * wght_w;
+    cfg.c0w0_last_c1 = cfg.c0_last_c1 * wght_w;
+
+    // TODO: calculate psum throttle when implementing TRS dataflow
+    cfg.psum_throttle = 0;
 
     // C0W0 must not be too short to allow for disabling of PE array while reading data
     if (cfg.c0w0_last_c1 < 6) {
         cfg.c1 = cfg.c1 - 1;
         cfg.c0_last_c1 = cfg.input_channels - (cfg.c1 - 1) * cfg.c0;
-        cfg.c0w0 = cfg.c0 * kernel_size;
-        cfg.c0w0_last_c1 = cfg.c0_last_c1 * kernel_size;
+        cfg.c0w0 = cfg.c0 * wght_w;
+        cfg.c0w0_last_c1 = cfg.c0_last_c1 * wght_w;
     }
 
-    if (cfg.c0w0 * (cfg.c1 - 1) + cfg.c0w0_last_c1 != cfg.input_channels * kernel_size) {
+    if (cfg.c0w0 * (cfg.c1 - 1) + cfg.c0w0_last_c1 != cfg.input_channels * wght_w) {
         cout << "h2 = " << cfg.h2 << endl;
         cout << "rows_last_h2 = " << cfg.rows_last_h2 << endl;
         cout << "c1 = " << cfg.c1 << endl;
@@ -209,7 +223,7 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
 void Conv2D::print_accelerator_parameters() {
     cout << "Accelerator run parameters:" << endl;
     cout << "  iact_dimension   " << cfg.iact_dimension << endl;
-    cout << "  wght_dimension   " << cfg.wght_dimension << endl;
+    cout << "  wght_dimension   " << (int)cfg.wght_dimension << endl;
     cout << "  input_channels   " << cfg.input_channels << endl;
     cout << "  output_channels  " << cfg.output_channels << endl;
     cout << "  c1               " << cfg.c1 << endl;
@@ -222,9 +236,11 @@ void Conv2D::print_accelerator_parameters() {
     cout << "  c0_last_c1       " << cfg.c0_last_c1 << endl;
     cout << "  c0w0             " << cfg.c0w0 << endl;
     cout << "  c0w0_last_c1     " << cfg.c0w0_last_c1 << endl;
+    cout << "  psum_throttle    " << (int)cfg.psum_throttle << endl;
+    cout << "  pad_x/pad_y      " << (int)cfg.pad_x << "/" << (int)cfg.pad_y << endl;
     cout << "  strd iact_w      " << cfg.stride_iact_w << endl;
     cout << "  strd iact_hw     " << cfg.stride_iact_hw << endl;
-    cout << "  strd wght_krnl   " << cfg.stride_wght_krnl << endl;
+    cout << "  strd wght_krnl   " << (int)cfg.stride_wght_krnl << endl;
     cout << "  strd wght_och    " << cfg.stride_wght_och << endl;
     cout << "  strd psum_och    " << cfg.stride_psum_och << endl;
 
@@ -238,22 +254,54 @@ void Conv2D::allocate_spad_auto() {
 
     bytes_per_channel = iact_h * iact_w;
     bytes_per_kernel = wght_h * wght_w;
-    bytes_per_output_channel = (iact_w - wght_w + 1) * (iact_h - wght_h + 1);
+
+    if (padding)
+        bytes_per_output_channel = iact_w * iact_h ;
+    else
+        bytes_per_output_channel = (iact_w - wght_w + 1) * (iact_h - wght_h + 1);
+
     if (!requantize)
         bytes_per_output_channel *= 2;
 
     spad_column_stride = hwinfo.spad_size / hwinfo.spad_word_size;
     channels_per_column = ceil(1.0 * input_channels / hwinfo.spad_word_size);
 
+    unsigned size_iact = channels_per_column * bytes_per_channel;
+    unsigned size_kernel_set = channels_per_column * bytes_per_kernel;
+    unsigned alloc_size_kernel_set = make_multiple_of(8, size_kernel_set);
+    unsigned size_wght = output_channels * alloc_size_kernel_set;
+
     // place iact at scratchpad start
     base_iact = 0;
 
     // place wght directly after iact, aligned to 32 bytes
     // should actually use cfg.m0 here, but allocate_spad_auto is usually called before compute_accelerator_parameters. change when supporting more than m0 ochs.
-    base_wght = make_multiple_of(32, channels_per_column * bytes_per_channel);
+    base_wght = make_multiple_of(32, size_iact);
+
+    base_padding = 0;
+    // if padding is enabled, a row of zeros if required:
+    // 1) try to fit padding bytes between iact and wght
+    // 2) try to fit it between kernel sets for different output channels (succeeds in most cases)
+    // 3) try to fit after kernels and before psum
+    // 4) move psum start to make space for padding bytes
+    if (padding) {
+        if (size_iact < base_wght)
+            base_padding = size_iact;
+        else if (size_kernel_set < alloc_size_kernel_set)
+            base_padding = base_wght + size_kernel_set;
+    }
 
     // place psum directly after wght, aligned to 32 bytes
-    base_psum = make_multiple_of(32, base_wght + output_channels * make_multiple_of(8, channels_per_column * bytes_per_kernel));
+    base_psum = make_multiple_of(32, base_wght + size_wght);
+
+    if (padding) {
+        if (base_padding == 0 && base_wght + size_wght < base_psum)
+            base_padding = base_wght + size_wght;
+        else {
+            base_padding = base_psum;
+            base_psum += 32;
+        }
+    }
 
     // calculate total allocated memory size per data type in bytes
     alloc_size_iact = base_wght * hwinfo.spad_word_size;
@@ -271,14 +319,15 @@ void Conv2D::allocate_spad_auto() {
         throw runtime_error("spad allocation size too small for psum data!");
 }
 
-std::tuple<unsigned, unsigned, unsigned> Conv2D::get_buffer_offsets() const {
-    return {base_iact, base_wght, base_psum};
+std::tuple<unsigned, unsigned, unsigned, unsigned> Conv2D::get_buffer_offsets() const {
+    return {base_iact, base_wght, base_psum, base_padding};
 }
 
-void Conv2D::set_buffer_offsets(unsigned offset_iact, unsigned offset_wght, unsigned offset_psum) {
+void Conv2D::set_buffer_offsets(unsigned offset_iact, unsigned offset_wght, unsigned offset_psum, unsigned offset_padding) {
     base_iact = offset_iact;
     base_wght = offset_wght;
     base_psum = offset_psum;
+    base_padding = offset_padding;
 }
 
 // consumes at most bytes_avail bytes from buf, returns number of remaining bytes in buf
@@ -355,6 +404,15 @@ void Conv2D::copy_data_in(void* iact_buf, size_t iact_bytes, void* wght_buf, siz
         wght_buf_i8 += input_channels * bytes_per_kernel;
         wght_addr += cfg.stride_wght_och;
     }
+
+    if (padding) {
+        // make sure there is one zero bytes per column for zero padding
+        int8_t* pad_addr = spad + base_padding;
+        for (unsigned col = 0; col < hwinfo.spad_word_size; col++) {
+            *pad_addr = 0;
+            pad_addr += spad_column_stride;
+        }
+    }
 }
 
 void Conv2D::set_postproc_data(const vector<int16_t>& bias, const vector<float>& factors, const vector<float>& zeropoints) {
@@ -410,6 +468,10 @@ string Conv2D::get_parameter_string() const {
     oss << wght_w << "x" << wght_h << ", ";
     oss << input_channels << " input channels, ";
     oss << output_channels << " output channels, ";
+    if (padding)
+        oss << "padding on, ";
+    else
+        oss << "padding off, ";
     switch (act_mode) {
         case act_none:
             oss << "activation none, ";
@@ -442,7 +504,7 @@ void Conv2D::run_accelerator() {
             throw runtime_error("activation requested but no postproc support in hardware");
     }
 
-    recacc_control_start(dev, requantize, act_mode, use_irq);
+    recacc_control_start(dev, requantize, act_mode, use_irq, padding);
 }
 
 // wait for accelerator to finish and copy data back, returns true on success

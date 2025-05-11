@@ -30,18 +30,20 @@ public:
     void set_hwinfo(const recacc_hwinfo& hwinfo);
     void set_recacc_device(recacc_device* dev);
     void use_interrupts(bool enabled);
+    void set_padding_mode(bool enable_same_size_padding);
 
     std::tuple<unsigned, unsigned> get_image_size() const;
     std::tuple<unsigned, unsigned> get_kernel_size() const;
     std::tuple<unsigned, unsigned> get_channel_count() const;
     std::string get_parameter_string() const;
     unsigned get_cycle_count() const;
+    bool get_padding_mode() const;
     bool get_requantize() const;
     enum activation_mode get_activation_mode() const;
 
     void allocate_spad_auto();
-    std::tuple<unsigned, unsigned, unsigned> get_buffer_offsets() const;
-    void set_buffer_offsets(unsigned offset_iact, unsigned offset_wght, unsigned offset_psum);
+    std::tuple<unsigned, unsigned, unsigned, unsigned> get_buffer_offsets() const;
+    void set_buffer_offsets(unsigned offset_iact, unsigned offset_wght, unsigned offset_psum, unsigned offset_padding);
 
     void compute_accelerator_parameters(bool fixup_channel_alignment = true);
     void print_accelerator_parameters();
@@ -69,10 +71,12 @@ protected:
     bool requantize = false;
     bool use_irq = false;
     enum activation_mode act_mode = act_none;
+    bool padding = false;
 
     unsigned base_iact = 0;
     unsigned base_wght = 0;
     unsigned base_psum = 0;
+    unsigned base_padding = 0;
     unsigned alloc_size_iact = 0;
     unsigned alloc_size_wght = 0;
     unsigned alloc_size_psum = 0;
