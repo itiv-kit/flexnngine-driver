@@ -17,12 +17,16 @@ extern "C" {
 
 using namespace std;
 
-array<tuple<bool, bool, bool>, 4> variants = {
-    // enable requantize, relu activation, use alternative dataflow
-    make_tuple(false, false, false),
-    make_tuple(true,  false, false),
-    make_tuple(false, true,  false),
-    make_tuple(true,  true,  false),
+array<tuple<bool, bool, bool, bool>, 8> variants = {
+    // enable requantize, padding, relu activation, use alternative dataflow
+    make_tuple(false, false, false, false),
+    make_tuple(true,  false, false, false),
+    make_tuple(false, true,  false, false),
+    make_tuple(true,  true,  false, false),
+    make_tuple(false, false, true,  false),
+    make_tuple(true,  false, true,  false),
+    make_tuple(false, true,  true,  false),
+    make_tuple(true,  true,  true,  false),
 };
 
 // number of output channels currently depends on m0, number of spatially mapped kernels
@@ -54,8 +58,8 @@ array<Conv2D, 22> tests = {
     Conv2D(128, 5, 16, 2)
 };
 
-VariadicTable<int, int, int, int, int, string, string, string, float, float, float, float, float> vt({
-    "#", "HxW", "RxS", "i-ch", "o-ch", "act", "requant", "status",
+VariadicTable<int, int, int, int, int, string, string, string, string, float, float, float, float, float> vt({
+    "#", "HxW", "RxS", "i-ch", "o-ch", "pad", "act", "requant", "status",
     "cpu us", "copy-in us", "acc us", "copy-out us", "speedup"}, 10);
 
 void list_tests() {
@@ -119,6 +123,7 @@ bool run_test(recacc_device* dev, Conv2D& test) {
         get<0>(testrun.get_kernel_size()),
         get<0>(testrun.get_channel_count()),
         get<1>(testrun.get_channel_count()),
+        testrun.get_padding_mode() ? "yes" : "no",
         activation_str,
         testrun.get_requantize() ? "yes" : "no",
         success ? "SUCCESS" : "FAILED",
@@ -213,17 +218,19 @@ int main(int argc, char** argv) {
                         VariadicTableColumnFormat::AUTO,
                         VariadicTableColumnFormat::AUTO,
                         VariadicTableColumnFormat::AUTO,
+                        VariadicTableColumnFormat::AUTO,
                         VariadicTableColumnFormat::FIXED,
                         VariadicTableColumnFormat::FIXED,
                         VariadicTableColumnFormat::FIXED,
                         VariadicTableColumnFormat::FIXED,
                         VariadicTableColumnFormat::FIXED});
-    vt.setColumnPrecision({0,0,0,0,0,0,0,0,3,3,3,3,2});
+    vt.setColumnPrecision({0,0,0,0,0,0,0,0,0,3,3,3,3,2});
 
     cout << "Running tests..." << endl;
-    for (auto [requantize, relu, dataflow] : variants) {
+    for (auto [requantize, padding, relu, dataflow] : variants) {
         for (auto t : tests) {
             t.set_requantize(requantize);
+            t.set_padding_mode(padding);
             t.set_activation_mode(relu ? act_relu : act_none);
             // TODO: implement switching to alternative dataflow
             run_test(&dev, t);

@@ -28,10 +28,11 @@ void dump_status_register(recacc_device* dev) {
 
 int main(int argc, char** argv) {
     bool dryrun = false;
-    unsigned image_size = 32, kernel_size = 3, input_channels = 4, output_channels = 3;
+    unsigned image_size = 32, kernel_size = 3, input_channels = 8, output_channels = 3;
     enum activation_mode act_mode = act_none;
     bool zero_bias = false;
     bool requantize = false;
+    bool padding = false;
     bool debug_mode = false;
     bool interrupts = false;
 
@@ -42,22 +43,23 @@ int main(int argc, char** argv) {
     string files_path;
     string output_path;
 
-    while ((c = getopt (argc, argv, "hnd:p:o:s:c:k:u:Bra:DIP")) != -1)
+    while ((c = getopt(argc, argv, "hnd:i:o:s:c:k:u:Brpa:DIP")) != -1)
         switch (c) {
             case 'h':
                 cout << "Usage:" << endl;
                 cout << "-h: show this help" << endl;
                 cout << "-n: no-op, do not access the accelerator" << endl;
                 cout << "-d <device>: use this uio device (default: " << DEFAULT_DEVICE << ")" << endl;
-                cout << "-p <path>: load data from path instead of random" << endl;
+                cout << "-i <path>: load data from path instead of random" << endl;
                 cout << "           path must contain _image.txt, _kernel.txt, _convolution.txt" << endl;
                 cout << "-o <path>: save output data to path (_output_acc.txt, _output_cpu.txt)" << endl;
                 cout << "-s 32: width & height of the input image" << endl;
                 cout << "-k 3: width & height of the kernels" << endl;
-                cout << "-c 4: number of input channels" << endl;
+                cout << "-c 8: number of input channels" << endl;
                 cout << "-u 3: number of output channels" << endl;
                 cout << "-B: use a zero bias for all channels" << endl;
                 cout << "-r: enable requantization" << endl;
+                cout << "-p: enable same size padding" << endl;
                 cout << "-a relu: enable activation (available: relu)" << endl;
                 cout << "-D enable buffer debug mode (fill unused with 0 / 0xaa pattern)" << endl;
                 cout << "-I/-P use interrupts or polling (default: polling)" << endl;
@@ -69,7 +71,7 @@ int main(int argc, char** argv) {
             case 'd':
                 device_name = string(optarg);
                 break;
-            case 'p':
+            case 'i':
                 files_path = string(optarg);
                 break;
             case 'o':
@@ -92,6 +94,9 @@ int main(int argc, char** argv) {
                 break;
             case 'r':
                 requantize = true;
+                break;
+            case 'p':
+                padding = true;
                 break;
             case 'I':
                 interrupts = true;
@@ -117,7 +122,7 @@ int main(int argc, char** argv) {
                     cerr << "Unknown option character " << static_cast<int>(optopt) << endl;
                 return 1;
             default:
-                abort ();
+                abort();
         }
     #endif
 
@@ -156,6 +161,7 @@ int main(int argc, char** argv) {
     c2d.set_channel_count(input_channels, output_channels);
     c2d.set_activation_mode(act_mode);
     c2d.set_requantize(requantize);
+    c2d.set_padding_mode(padding);
     c2d.set_bias(!zero_bias);
     c2d.set_debug_clean_buffers(debug_mode);
     c2d.use_interrupts(interrupts);
