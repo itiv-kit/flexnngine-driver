@@ -315,7 +315,7 @@ void Conv2D::allocate_spad_auto() {
     if (base_wght >= spad_column_stride || alloc_size_wght < bytes_per_kernel * input_channels * output_channels)
         throw runtime_error("spad allocation size too small for wght data!");
 
-    if (base_psum >= spad_column_stride || bytes_per_output_channel * output_channels >= (spad_column_stride - base_psum) * hwinfo.spad_word_size)
+    if (base_psum >= spad_column_stride || bytes_per_output_channel >= spad_column_stride - base_psum)
         throw runtime_error("spad allocation size too small for psum data!");
 }
 
