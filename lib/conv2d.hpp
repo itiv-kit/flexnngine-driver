@@ -28,7 +28,7 @@ public:
     void set_activation_mode(enum activation_mode mode);
     virtual void set_requantize(bool enabled);
     void set_hwinfo(const recacc_hwinfo& hwinfo);
-    void set_recacc_device(recacc_device* dev);
+    void set_recacc_device(const recacc_device* dev);
     void use_interrupts(bool enabled);
     void set_padding_mode(bool enable_same_size_padding);
 
@@ -48,7 +48,7 @@ public:
     void compute_accelerator_parameters(bool fixup_channel_alignment = true);
     void print_accelerator_parameters();
 
-    void copy_data_in(void* iact_buf, size_t iact_bytes, void* wght_buf, size_t wght_bytes);
+    void copy_data_in(const void* iact_buf, size_t iact_bytes, const void* wght_buf, size_t wght_bytes);
     void set_postproc_data(const std::vector<int16_t>& bias, const std::vector<float>& factors, const std::vector<float>& zeropoints);
     void configure_accelerator();
     void run_accelerator();
@@ -58,7 +58,7 @@ public:
 
 protected:
     void ensure_hwinfo();
-    size_t _copy_in_columnwise(int8_t* dst, size_t stride_size, int8_t* buf, size_t bytes_avail, bool zeropad = true);
+    size_t _copy_in_columnwise(int8_t* dst, size_t stride_size, const int8_t* buf, size_t bytes_avail, bool zeropad = true);
 
     unsigned iact_w = 32;
     unsigned iact_h = 32;
@@ -86,7 +86,7 @@ protected:
     unsigned bytes_per_kernel = 0;
     unsigned bytes_per_output_channel = 0;
 
-    recacc_device* dev;
+    const recacc_device* dev;
     recacc_hwinfo hwinfo;
     recacc_config cfg;
 };

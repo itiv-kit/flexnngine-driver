@@ -59,7 +59,7 @@ void Conv2D::set_hwinfo(const recacc_hwinfo& hwinfo) {
     this->hwinfo = hwinfo;
 }
 
-void Conv2D::set_recacc_device(recacc_device* dev) {
+void Conv2D::set_recacc_device(const recacc_device* dev) {
     this->dev = dev;
 }
 
@@ -331,7 +331,7 @@ void Conv2D::set_buffer_offsets(unsigned offset_iact, unsigned offset_wght, unsi
 }
 
 // consumes at most bytes_avail bytes from buf, returns number of remaining bytes in buf
-size_t Conv2D::_copy_in_columnwise(int8_t* dst, size_t stride_size, int8_t* buf, size_t bytes_avail, bool zeropad) {
+size_t Conv2D::_copy_in_columnwise(int8_t* dst, size_t stride_size, const int8_t* buf, size_t bytes_avail, bool zeropad) {
     for (unsigned col = 0; col < hwinfo.spad_word_size; col++) {
         // global channels_per_column can be used for both iact and wght channel count per column
         size_t col_bytes = channels_per_column * stride_size;
@@ -377,7 +377,7 @@ size_t Conv2D::_copy_in_columnwise(int8_t* dst, size_t stride_size, int8_t* buf,
     return bytes_avail;
 }
 
-void Conv2D::copy_data_in(void* iact_buf, size_t iact_bytes, void* wght_buf, size_t wght_bytes) {
+void Conv2D::copy_data_in(const void* iact_buf, size_t iact_bytes, const void* wght_buf, size_t wght_bytes) {
     ensure_hwinfo();
 
     // these checks are purely based on the input buffer size, not on the conv2d parameters
@@ -394,10 +394,10 @@ void Conv2D::copy_data_in(void* iact_buf, size_t iact_bytes, void* wght_buf, siz
     // but vertically first (ch0+ch1 -> col1, ch2+ch3 -> col2) (for 16 channels)
     int8_t* iact_addr = spad + base_iact;
     // cout << "copy iact from " << (void*)iact_buf << " to " << (void*)iact_addr << " " << iact_bytes << " bytes" << endl;
-    _copy_in_columnwise(iact_addr, bytes_per_channel, static_cast<int8_t*>(iact_buf), iact_bytes, false);
+    _copy_in_columnwise(iact_addr, bytes_per_channel, static_cast<const int8_t*>(iact_buf), iact_bytes, false);
 
     int8_t* wght_addr = spad + base_wght;
-    int8_t* wght_buf_i8 = static_cast<int8_t*>(wght_buf);
+    const int8_t* wght_buf_i8 = static_cast<const int8_t*>(wght_buf);
     for (unsigned och = 0; och < cfg.m0; och++) {
         // cout << "copy wght for och " << och << " from " << (void*)wght_buf << " to " << (void*)wght_addr << " " << wght_bytes << " bytes" << endl;
         wght_bytes = _copy_in_columnwise(wght_addr, bytes_per_kernel, wght_buf_i8, wght_bytes, true);

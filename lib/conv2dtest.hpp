@@ -53,11 +53,11 @@ private:
 
     int8_t*  buf_iact;
     int8_t*  buf_wght;
-    int8_t* buf_result_cpu;
-    int8_t* buf_result_acc;
+    int8_t*  buf_result_cpu;
+    int8_t*  buf_result_acc;
     int16_t* buf_result_cpu_psums;
     int16_t* buf_result_acc_psums;
-    int8_t* buf_result_files;
+    int8_t*  buf_result_files;
     int16_t* buf_result_files_psums;
 
     std::vector<int16_t> buf_bias;
