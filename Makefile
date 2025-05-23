@@ -10,6 +10,7 @@ SRCS = $(wildcard driver/*.c)
 OBJS = $(filter-out driver/baremetal.o,$(SRCS:%.c=%.o))
 SRCS_CXX = $(wildcard lib/*.cpp)
 OBJS_CXX = $(SRCS_CXX:%.cpp=%.o)
+LIB = libflexnngine.a
 TARGET_SRCS_C = $(wildcard *.c)
 TARGET_SRCS_CXX = $(wildcard *.cpp)
 TARGETS_C = $(TARGET_SRCS_C:%.c=%)
@@ -23,10 +24,10 @@ all: release
 release: $(TARGETS)
 debug: $(TARGETS)
 
-$(TARGETS_C): %: %.c $(OBJS)
+$(TARGETS_C): %: %.c $(LIB)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-$(TARGETS_CXX): %: %.cpp $(OBJS) $(OBJS_CXX)
+$(TARGETS_CXX): %: %.cpp $(LIB)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
 %.o: %.c
@@ -35,5 +36,7 @@ $(TARGETS_CXX): %: %.cpp $(OBJS) $(OBJS_CXX)
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
+$(LIB): $(LIB)($(OBJS_CXX) $(OBJS))
+
 clean:
-	rm -f $(OBJS) $(OBJS_CXX) $(TARGETS)
+	rm -f $(OBJS) $(OBJS_CXX) $(LIB) $(TARGETS)
