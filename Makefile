@@ -31,10 +31,10 @@ $(TARGETS_CXX): %: %.cpp $(LIB)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -fPIC -c -o $@ $<
 
 $(LIB): $(LIB)($(OBJS_CXX) $(OBJS))
 
