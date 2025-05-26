@@ -104,6 +104,8 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
     assert(input_channels > 0);
     assert(output_channels > 0);
     assert(hwinfo.array_size_x > 0);
+    assert(base_iact != base_wght);
+    assert(base_iact != base_psum);
 
     // fixup by default. this could change in the future.
     if (fixup_channel_alignment) {
