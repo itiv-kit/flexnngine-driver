@@ -258,12 +258,14 @@ void Conv2D::allocate_spad_auto() {
     bytes_per_kernel = wght_h * wght_w;
 
     if (padding)
-        bytes_per_output_channel = iact_w * iact_h ;
+        bytes_per_output_channel = iact_w * iact_h;
     else
         bytes_per_output_channel = (iact_w - wght_w + 1) * (iact_h - wght_h + 1);
 
-    if (!requantize)
-        bytes_per_output_channel *= 2;
+    if (requantize)
+        bytes_per_output_channel *= pow(2, ceil(log2(hwinfo.data_width_bits_iact)) - 3);
+    else
+        bytes_per_output_channel *= pow(2, ceil(log2(hwinfo.data_width_bits_psum)) - 3);
 
     spad_column_stride = hwinfo.spad_size / hwinfo.spad_word_size;
     channels_per_column = ceil(1.0 * input_channels / hwinfo.spad_word_size);
