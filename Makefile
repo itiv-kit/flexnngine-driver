@@ -5,6 +5,7 @@ release: CXXFLAGS += -s -O3
 debug:   CFLAGS += -g -O1
 debug:   CXXFLAGS += -g -O1
 LDFLAGS = -lm
+RANLIB ?= ranlib
 
 SRCS = $(wildcard driver/*.c)
 OBJS = $(filter-out driver/baremetal.o,$(SRCS:%.c=%.o))
@@ -36,7 +37,10 @@ $(TARGETS_CXX): %: %.cpp $(LIB)
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -fPIC -c -o $@ $<
 
-$(LIB): $(LIB)($(OBJS_CXX) $(OBJS))
+$(LIB): $(OBJS_CXX) $(OBJS)
+	-rm -f $@
+	$(AR) rc $@ $^
+	$(RANLIB) $@
 
 clean:
 	rm -f $(OBJS) $(OBJS_CXX) $(LIB) $(TARGETS)
