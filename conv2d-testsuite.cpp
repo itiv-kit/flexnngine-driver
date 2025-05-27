@@ -77,6 +77,9 @@ string format_unit(float value, const string& unit) {
 // run one of the tests, return true on success
 bool run_test(recacc_device* dev, Conv2D& test) {
     static int test_number = 1;
+    bool do_run = true;
+    bool success = false;
+    float speedup = 0.0;
 
     Conv2DTest testrun(dev, test);
     cout << "Running test " << test.get_parameter_string() << endl;
@@ -87,24 +90,19 @@ bool run_test(recacc_device* dev, Conv2D& test) {
         testrun.prepare_accelerator();
     } catch (const exception& e) {
         cout << "SKIPPED due to exception: " << e.what() << endl;
-        return false;
+        do_run = false;
     }
-    testrun.run_accelerator();
-    testrun.run_cpu();
 
-    bool success = testrun.get_accelerator_results();
-    if (!success)
-        return false;
+    if (do_run) {
+        testrun.run_accelerator();
+        testrun.run_cpu();
 
-    // cout << "   perf: "
-    //      << " cpu "      << testrun.duration_cpu.count() << "µs"
-    //      << " copy-in "  << testrun.duration_copy_in.count() << "µs"
-    //      << " acc "      << testrun.duration_acc.count() << "µs"
-    //      << " copy-out " << testrun.duration_copy_out.count() << "µs" << endl;
-
-    success = testrun.verify();
-
-    float speedup = testrun.duration_cpu / (testrun.duration_copy_in + testrun.duration_acc + testrun.duration_copy_out);
+        success = testrun.get_accelerator_results();
+        if (success) {
+            success = testrun.verify();
+            speedup = testrun.duration_cpu / (testrun.duration_copy_in + testrun.duration_acc + testrun.duration_copy_out);
+        }
+    }
 
     string activation_str{"none"};
     switch (testrun.get_activation_mode()) {
@@ -117,6 +115,12 @@ bool run_test(recacc_device* dev, Conv2D& test) {
             activation_str = "unknown";
     }
 
+    string success_str{"FAILED"};
+    if (!do_run)
+        success_str = "SKIPPED";
+    else if (success)
+        success_str = "SUCCESS";
+
     vt.addRow(
         test_number,
         get<0>(testrun.get_image_size()),
@@ -126,7 +130,7 @@ bool run_test(recacc_device* dev, Conv2D& test) {
         testrun.get_padding_mode() ? "yes" : "no",
         activation_str,
         testrun.get_requantize() ? "yes" : "no",
-        success ? "SUCCESS" : "FAILED",
+        success_str,
         testrun.duration_cpu.count(),
         testrun.duration_copy_in.count(),
         testrun.duration_acc.count(),

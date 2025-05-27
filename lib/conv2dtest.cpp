@@ -39,6 +39,11 @@ Conv2DTest::Conv2DTest(recacc_device* accelerator, Conv2D operation)
     dryrun = false;
     verbose = Verbosity::Info;
     hwinfo.array_size_x = 0;
+
+    duration_cpu = std::chrono::duration<float, std::micro>();
+    duration_acc = std::chrono::duration<float, std::micro>();
+    duration_copy_in = std::chrono::duration<float, std::micro>();
+    duration_copy_out = std::chrono::duration<float, std::micro>();
 }
 
 Conv2DTest::~Conv2DTest() {
