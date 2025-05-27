@@ -23,7 +23,7 @@ public:
     void set_verbose(Verbosity level);
     void set_bias(bool enabled);
     void set_debug_clean_buffers(bool enabled);
-    void prepare_data(bool data_from_files, const std::string& files_path);
+    void prepare_run(const std::string& files_path = std::string());
     void prepare_accelerator();
     void run_accelerator();
     void run_cpu();
@@ -40,6 +40,7 @@ public:
 
 private:
     void ensure_hwinfo();
+    void prepare_data(const std::string& files_path);
     size_t _verify_buffers(input_t* input, input_t* reference, const std::string& name_input, const std::string& name_reference);
 
     size_t num_iact_elements;

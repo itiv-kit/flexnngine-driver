@@ -218,8 +218,11 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
         throw runtime_error("BUG: mismatch of calculated accelerator parameters");
     }
 
-    if (cfg.m0 != output_channels)
+    if (cfg.m0 != output_channels) {
         cout << "WARNING: " << output_channels << " output channels requested, but have to map " << cfg.m0 << " output channels." << endl;
+        // TODO: allow more than m0 output channels -> implement m1 tiling, maybe in software?
+        output_channels = cfg.output_channels = cfg.m0;
+    }
 }
 
 void Conv2D::print_accelerator_parameters() {

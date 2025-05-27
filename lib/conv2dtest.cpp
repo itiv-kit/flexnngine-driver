@@ -77,7 +77,35 @@ void Conv2DTest::ensure_hwinfo() {
     Conv2D::ensure_hwinfo();
 }
 
-void Conv2DTest::prepare_data(bool data_from_files, const string& files_path) {
+void Conv2DTest::prepare_run(const std::string& files_path) {
+    ensure_hwinfo();
+
+    if (verbose > Verbosity::Errors)
+        print_hwinfo(hwinfo);
+
+    allocate_spad_auto();
+    if (verbose > Verbosity::Errors) {
+        auto offs = get_buffer_offsets();
+        cout << "spad alloc iact " << get<0>(offs) << " wght " << get<1>(offs) << " psum " << get<2>(offs) << " pad " << get<3>(offs) << endl;
+    }
+
+    compute_accelerator_parameters(true);
+
+    if (verbose > Verbosity::Errors)
+        print_accelerator_parameters();
+
+    prepare_data(files_path);
+
+    // clear software result buffers
+    memset(buf_result_acc, 0, num_result_elements_aligned * sizeof(buf_result_acc[0]));
+    memset(buf_result_cpu, 0, num_result_elements * sizeof(buf_result_cpu[0]));
+}
+
+void Conv2DTest::prepare_data(const string& files_path) {
+    bool data_from_files = false;
+    if (files_path.size() > 0)
+        data_from_files = true;
+
     if (verbose > Verbosity::Errors) {
         cout << "preparing conv2d data with:" << endl;
         cout << "  " << iact_w << "x" << iact_h << ", " << input_channels << " ch input activations" << endl;
@@ -244,26 +272,6 @@ void Conv2DTest::run_cpu() {
 }
 
 void Conv2DTest::prepare_accelerator() {
-    ensure_hwinfo();
-
-    if (verbose > Verbosity::Errors)
-        print_hwinfo(hwinfo);
-
-    allocate_spad_auto();
-    if (verbose > Verbosity::Errors) {
-        auto offs = get_buffer_offsets();
-        cout << "spad alloc iact " << get<0>(offs) << " wght " << get<1>(offs) << " psum " << get<2>(offs) << " pad " << get<3>(offs) << endl;
-    }
-
-    compute_accelerator_parameters(true);
-
-    if (verbose > Verbosity::Errors)
-        print_accelerator_parameters();
-
-    // clear software result buffers
-    memset(buf_result_acc, 0, num_result_elements_aligned * sizeof(buf_result_acc[0]));
-    memset(buf_result_cpu, 0, num_result_elements * sizeof(buf_result_cpu[0]));
-
     if (dryrun)
         return;
 

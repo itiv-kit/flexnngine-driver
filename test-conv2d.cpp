@@ -166,14 +166,14 @@ int main(int argc, char** argv) {
     c2d.set_debug_clean_buffers(debug_mode);
     c2d.use_interrupts(interrupts);
 
-    cout << "preparing test data" << endl;
+    cout << "preparing parameters and test data" << endl;
     #ifdef __linux__
-    c2d.prepare_data(files_path.length() > 0, files_path);
+    c2d.prepare_run(files_path);
     #else
-    c2d.prepare_data(false, string());
+    c2d.prepare_run(string());
     #endif
 
-    cout << "calculating accelerator parameters" << endl;
+    cout << "writing accelerator configuration and data" << endl;
     c2d.prepare_accelerator();
     if (!dryrun)
         dump_status_register(&dev);
