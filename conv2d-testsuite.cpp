@@ -84,11 +84,11 @@ bool run_test(recacc_device* dev, Conv2D& test) {
     testrun.set_verbose(Conv2DTest::Verbosity::Errors);
     try {
         testrun.prepare_data(false, string());
+        testrun.prepare_accelerator();
     } catch (const exception& e) {
         cout << "SKIPPED due to exception: " << e.what() << endl;
         return false;
     }
-    testrun.prepare_accelerator();
     testrun.run_accelerator();
     testrun.run_cpu();
 
