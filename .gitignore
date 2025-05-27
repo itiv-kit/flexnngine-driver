@@ -4,3 +4,4 @@ test-buffers
 test-conv2d
 test-regs
 **/*.o
+libflexnngine.a
