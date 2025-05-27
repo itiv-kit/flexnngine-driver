@@ -89,11 +89,9 @@ union recacc_control_reg {
     recacc_control decoded;
 };
 
-// not used anymore for merged spad
-// enum buffer_type {
-//     iact, wght, psum
-// };
-
 enum activation_mode {
     act_none, act_relu
 };
+
+typedef int8_t input_t;
+typedef int32_t psum_t;

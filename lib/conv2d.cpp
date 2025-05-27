@@ -333,7 +333,7 @@ void Conv2D::set_buffer_offsets(unsigned offset_iact, unsigned offset_wght, unsi
 }
 
 // consumes at most bytes_avail bytes from buf, returns number of remaining bytes in buf
-size_t Conv2D::_copy_in_columnwise(int8_t* dst, size_t stride_size, const int8_t* buf, size_t bytes_avail, bool zeropad) {
+size_t Conv2D::_copy_in_columnwise(input_t* dst, size_t stride_size, const input_t* buf, size_t bytes_avail, bool zeropad) {
     for (unsigned col = 0; col < hwinfo.spad_word_size; col++) {
         // global channels_per_column can be used for both iact and wght channel count per column
         size_t col_bytes = channels_per_column * stride_size;
@@ -356,7 +356,7 @@ size_t Conv2D::_copy_in_columnwise(int8_t* dst, size_t stride_size, const int8_t
                 copy(buf, buf + col_bytes_buf_aligned, dst);
             else {
                 // make a temporary copy if the buffer is too small
-                int8_t tmp[col_bytes_buf_aligned];
+                input_t tmp[col_bytes_buf_aligned];
                 copy(buf, buf + col_bytes_buf, tmp);
                 fill(tmp + col_bytes_buf, tmp + col_bytes_buf_aligned, 0);
                 copy(tmp, tmp + col_bytes_buf_aligned, dst);
@@ -389,17 +389,17 @@ void Conv2D::copy_data_in(const void* iact_buf, size_t iact_bytes, const void* w
     if (wght_bytes > alloc_size_wght)
         throw runtime_error("spad memory too small for wght data!");
 
-    int8_t* spad = static_cast<int8_t*>(recacc_get_buffer(dev));
+    input_t* spad = static_cast<input_t*>(recacc_get_buffer(dev));
 
     // copy iact data column-wise
     // to speed up copying, channels are not mapped ch0 -> col0, ch1 -> col1,
     // but vertically first (ch0+ch1 -> col1, ch2+ch3 -> col2) (for 16 channels)
-    int8_t* iact_addr = spad + base_iact;
+    input_t* iact_addr = spad + base_iact;
     // cout << "copy iact from " << (void*)iact_buf << " to " << (void*)iact_addr << " " << iact_bytes << " bytes" << endl;
-    _copy_in_columnwise(iact_addr, bytes_per_channel, static_cast<const int8_t*>(iact_buf), iact_bytes, false);
+    _copy_in_columnwise(iact_addr, bytes_per_channel, static_cast<const input_t*>(iact_buf), iact_bytes, false);
 
-    int8_t* wght_addr = spad + base_wght;
-    const int8_t* wght_buf_i8 = static_cast<const int8_t*>(wght_buf);
+    input_t* wght_addr = spad + base_wght;
+    const input_t* wght_buf_i8 = static_cast<const input_t*>(wght_buf);
     for (unsigned och = 0; och < cfg.m0; och++) {
         // cout << "copy wght for och " << och << " from " << (void*)wght_buf << " to " << (void*)wght_addr << " " << wght_bytes << " bytes" << endl;
         wght_bytes = _copy_in_columnwise(wght_addr, bytes_per_kernel, wght_buf_i8, wght_bytes, true);
@@ -409,7 +409,7 @@ void Conv2D::copy_data_in(const void* iact_buf, size_t iact_bytes, const void* w
 
     if (padding) {
         // make sure there is one zero bytes per column for zero padding
-        int8_t* pad_addr = spad + base_padding;
+        input_t* pad_addr = spad + base_padding;
         for (unsigned col = 0; col < hwinfo.spad_word_size; col++) {
             *pad_addr = 0;
             pad_addr += spad_column_stride;
@@ -417,7 +417,7 @@ void Conv2D::copy_data_in(const void* iact_buf, size_t iact_bytes, const void* w
     }
 }
 
-void Conv2D::set_postproc_data(const vector<int16_t>& bias, const vector<float>& factors, const vector<float>& zeropoints) {
+void Conv2D::set_postproc_data(const vector<psum_t>& bias, const vector<float>& factors, const vector<float>& zeropoints) {
     ensure_hwinfo();
 
     // cout << "writing " << static_cast<unsigned>(hwinfo.max_output_channels) << " bias/scale regs" << endl;
