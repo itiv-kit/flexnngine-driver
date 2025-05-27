@@ -39,7 +39,7 @@ static std::mt19937 mtrnd(0);
 
 template <typename T> void generate_random_data(T* ptr, size_t n) {
     for (auto i = 0u; i < n; i++)
-        ptr[i] = static_cast<T>(mtrnd() % 256);
+        ptr[i] = static_cast<T>(mtrnd()) % 64;
 }
 
 // read integers from simulation files
