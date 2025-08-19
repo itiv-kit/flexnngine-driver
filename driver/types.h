@@ -17,6 +17,7 @@ typedef struct {
     uint16_t c1;
     uint16_t w1;
     uint16_t h2;
+    uint16_t m1;
     uint16_t m0;
     uint16_t m0_last_m1;
     uint16_t rows_last_h2;

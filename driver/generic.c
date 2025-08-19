@@ -61,6 +61,7 @@ int recacc_config_read(const recacc_device* dev, recacc_config* cfg) {
     cfg->c1               = recacc_reg_read(dev, RECACC_REG_IDX_CONV_C1);
     cfg->w1               = recacc_reg_read(dev, RECACC_REG_IDX_CONV_W1);
     cfg->h2               = recacc_reg_read(dev, RECACC_REG_IDX_CONV_H2);
+    cfg->m1               = recacc_reg_read(dev, RECACC_REG_IDX_CONV_M1);
     cfg->m0               = recacc_reg_read(dev, RECACC_REG_IDX_CONV_M0);
     cfg->m0_last_m1       = recacc_reg_read(dev, RECACC_REG_IDX_CONV_M0_LAST_M1);
     cfg->rows_last_h2     = recacc_reg_read(dev, RECACC_REG_IDX_CONV_ROWS_LAST_H2);
@@ -99,6 +100,7 @@ int recacc_config_write(const recacc_device* dev, const recacc_config* cfg) {
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_C1, cfg->c1);
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_W1, cfg->w1);
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_H2, cfg->h2);
+    recacc_reg_write(dev, RECACC_REG_IDX_CONV_M1, cfg->m1);
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_M0, cfg->m0);
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_M0_LAST_M1, cfg->m0_last_m1);
     recacc_reg_write(dev, RECACC_REG_IDX_CONV_ROWS_LAST_H2, cfg->rows_last_h2);

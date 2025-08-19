@@ -143,6 +143,8 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
 
     // m0 is how many kernels are mapped at once (vertically)
     cfg.m0 = floor(1.0 * hwinfo.array_size_y / wght_h);
+    cfg.m1 = ceil(1.0 * output_channels / cfg.m0);
+    cfg.m0_last_m1 = output_channels - (cfg.m1 - 1) * cfg.m0;
     // h1 is how many image rows are processed at once
     // for RS dataflow, each accelerator column processes one input image row
     // int h1 = hwinfo.array_size_x;
@@ -156,7 +158,6 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
         cfg.pad_x = cfg.pad_y = 0;
     }
     cfg.rows_last_h2 = 1; // not required for dataflow 0;
-    cfg.m0_last_m1 = 1; // not used yet
 
     int size_rows = hwinfo.array_size_x + hwinfo.array_size_y - 1;
     // TODO: check case for M0 = 0. IMHO the else path is incorrect, as H2 is the number of iterations for mapping
