@@ -31,31 +31,42 @@ array<tuple<bool, bool, bool, bool>, 8> variants = {
 
 // number of output channels currently depends on m0, number of spatially mapped kernels
 // on a 10x7 accelerator, three 3x3 kernels and two 5x5 kernels can be mapped on the Y axis, thus 3 / 2 channels
-array<Conv2D, 22> tests = {
+array<Conv2D, 33> tests = {
     //Conv2D(8, 3, 8, 3, true),
     //Conv2D(8, 5, 8, 2, true),
     Conv2D(16, 3, 8, 3), // small image + few channels
     Conv2D(16, 5, 8, 2),
+    Conv2D(16, 7, 8, 1),
     Conv2D(16, 3, 32, 3), // small image + more channels
     Conv2D(16, 5, 32, 2),
+    Conv2D(16, 7, 32, 1),
     Conv2D(16, 3, 512, 3), // small image + many channels
     Conv2D(16, 5, 512, 2),
+    Conv2D(16, 7, 512, 1),
     Conv2D(32, 3, 8, 3), // medium image + few channels
     Conv2D(32, 5, 8, 2),
-    Conv2D(32, 3, 256, 3), // medium image + more channels
-    Conv2D(32, 5, 256, 2),
+    Conv2D(32, 7, 8, 1),
+    Conv2D(32, 3, 64, 3), // medium image + more channels
+    Conv2D(32, 5, 64, 2),
+    Conv2D(32, 7, 64, 1),
     Conv2D(32, 3, 256, 3), // medium image + many channels
     Conv2D(32, 5, 256, 2),
+    Conv2D(32, 7, 256, 1),
     Conv2D(64, 3, 8, 3), // large image + few channels
     Conv2D(64, 5, 8, 2),
+    Conv2D(64, 7, 8, 1),
     Conv2D(64, 3, 32, 3),
     Conv2D(64, 5, 32, 2),
+    Conv2D(64, 7, 32, 1),
     Conv2D(64, 3, 96, 3), // large image + many channels
     Conv2D(64, 5, 96, 2),
+    Conv2D(64, 7, 96, 1),
     Conv2D(128, 3, 8, 3), // huge image + few channels
     Conv2D(128, 5, 8, 2),
+    Conv2D(128, 7, 8, 1),
     Conv2D(128, 3, 16, 3), // the largest configuration for 512KiB scratchpad
-    Conv2D(128, 5, 16, 2)
+    Conv2D(128, 5, 16, 2),
+    Conv2D(128, 7, 16, 1),
 };
 
 VariadicTable<int, int, int, int, int, string, string, string, string, float, float, float, float, float> vt({
@@ -238,7 +249,6 @@ int main(int argc, char** argv) {
             t.set_activation_mode(relu ? act_relu : act_none);
             // TODO: implement switching to alternative dataflow
             run_test(&dev, t);
-            recacc_reset(&dev);
         }
     }
 
