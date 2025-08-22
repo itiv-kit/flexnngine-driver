@@ -6,7 +6,8 @@
 /dts-v1/;
 /plugin/;
 &fpga_full {
-	firmware-name = "flexnngine.bit.bin";
+	// firmware-name = "flexnngine.bit.bin";
+	external-fpga-config;
 	resets = <&zynqmp_reset 116>;
 	// define PL fabric clocks https://github.com/Xilinx/linux-xlnx/blob/master/Documentation/devicetree/bindings/clock/xlnx%2Cfclk.yaml
 	clocking0: clocking0 {
@@ -45,11 +46,6 @@
 		clocks = <&zynqmp_clk 71>;
 		compatible = "fixed-factor-clock";
 	};
-	// zyxclmm_drm {
-	// 	compatible = "xlnx,zocl";
-	// 	interrupt-parent = <&gic>;
-	// 	interrupts = <0x0 0x89 0x4>, <0x0 0x90 0x4>, <0x0 0x91 0x4>, <0x0 0x92 0x4>, <0x0 0x93 0x4>, <0x0 0x94 0x4>, <0x0 0x95 0x4>, <0x0 0x96 0x4>;
-	// };
 };
 &amba {
 	#address-cells = <2>;

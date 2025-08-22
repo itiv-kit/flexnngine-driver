@@ -8,7 +8,8 @@
 /dts-v1/;
 /plugin/;
 &fpga_full {
-	firmware-name = "flexnngine.bit.bin";
+	// firmware-name = "flexnngine.bit.bin";
+	external-fpga-config;
 	resets = <&zynqmp_reset 116>;
 	// define PL fabric clocks https://github.com/Xilinx/linux-xlnx/blob/master/Documentation/devicetree/bindings/clock/xlnx%2Cfclk.yaml
 	clocking0: clocking0 {
