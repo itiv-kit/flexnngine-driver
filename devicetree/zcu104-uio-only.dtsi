@@ -1,0 +1,66 @@
+/* standalone device tree overlay to load a UIO driver covering the complete FPGA region
+ * FPGA interface configuration (the &fpga_full part) originall created using xsdb from
+ * https://github.com/Xilinx/device-tree-xlnx (can also be generated using petalinux).
+ */
+
+/dts-v1/;
+/plugin/;
+&fpga_full {
+	firmware-name = "flexnngine.bit.bin";
+	resets = <&zynqmp_reset 116>;
+	// define PL fabric clocks https://github.com/Xilinx/linux-xlnx/blob/master/Documentation/devicetree/bindings/clock/xlnx%2Cfclk.yaml
+	clocking0: clocking0 {
+		#clock-cells = <0>;
+		assigned-clock-rates = <100000000>;
+		assigned-clocks = <&zynqmp_clk 71>;
+		clock-output-names = "fabric_clk";
+		clocks = <&zynqmp_clk 71>;
+		compatible = "xlnx,fclk";
+	};
+	clocking1: clocking1 {
+		#clock-cells = <0>;
+		assigned-clock-rates = <150000000>;
+		assigned-clocks = <&zynqmp_clk 72>;
+		clock-output-names = "fabric_clk";
+		clocks = <&zynqmp_clk 72>;
+		compatible = "xlnx,fclk";
+	};
+	// PL-to-PS AXI FIFO interface https://github.com/Xilinx/linux-xlnx/blob/master/Documentation/devicetree/bindings/fpga/xlnx,afi-fpga.txt
+	afi0: afi0 {
+		compatible = "xlnx,afi-fpga";
+		config-afi = < 0 0>, <1 0>, <2 0>, <3 0>, <4 0>, <5 0>, <6 0>, <7 0>, <8 0>, <9 0>, <10 0>, <11 0>, <12 0>, <13 0>, <14 0xa00>, <15 0x000>;
+		resets = <&zynqmp_reset 116>, <&zynqmp_reset 117>, <&zynqmp_reset 118>, <&zynqmp_reset 119>;
+	};
+	misc_clk_0: misc_clk_0 {
+		#clock-cells = <0>;
+		clock-div = <1>;
+		clock-mult = <1>;
+		clocks = <&zynqmp_clk 71>;
+		compatible = "fixed-factor-clock";
+	};
+	misc_clk_1: misc_clk_1 {
+		#clock-cells = <0>;
+		clock-div = <1>;
+		clock-mult = <2>;
+		clocks = <&zynqmp_clk 71>;
+		compatible = "fixed-factor-clock";
+	};
+	// zyxclmm_drm {
+	// 	compatible = "xlnx,zocl";
+	// 	interrupt-parent = <&gic>;
+	// 	interrupts = <0x0 0x89 0x4>, <0x0 0x90 0x4>, <0x0 0x91 0x4>, <0x0 0x92 0x4>, <0x0 0x93 0x4>, <0x0 0x94 0x4>, <0x0 0x95 0x4>, <0x0 0x96 0x4>;
+	// };
+};
+&amba {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	acc_ctrl_sp: fabric@a0000000 {
+		clock-names = "clk", "s00_axi_aclk";
+		clocks = <&misc_clk_0>, <&misc_clk_1>;
+		compatible = "generic-uio";
+		reg = <0x0 0xa0000000 0x0 0x1000000>;
+		interrupt-names = "o_irq";
+		interrupt-parent = <&gic>;
+		interrupts = <0 89 4>;
+	};
+};
