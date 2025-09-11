@@ -57,6 +57,6 @@
 		reg = <0x0 0xa0000000 0x0 0x1000000>;
 		interrupt-names = "o_irq";
 		interrupt-parent = <&gic>;
-		interrupts = <0 89 4>;
+		interrupts = <0 90 4>;
 	};
 };
