@@ -26,14 +26,14 @@ fi
 
 echo "Loading bitstream $BITSTREAM..."
 echo 0 > /sys/class/fpga_manager/fpga0/flags
-ln -sf "$BITSTREAM" /lib/firmware/bitstream.bit
+ln -sf "$(realpath "$BITSTREAM")" /lib/firmware/bitstream.bit
 echo bitstream.bit > /sys/class/fpga_manager/fpga0/firmware
 
 if [ ! -d $OVL_DIR ] || [ $DEVICETREE_RELOAD -eq 1 ] ; then
   echo "Loading device tree overlay $OVERLAY"
   [ -d $OVL_DIR ] && rmdir $OVL_DIR
   mkdir /sys/kernel/config/device-tree/overlays/full
-  ln -sf "$OVERLAY" /lib/firmware/overlay.dtbo
+  ln -sf "$(realpath "$OVERLAY")" /lib/firmware/overlay.dtbo
   echo overlay.dtbo > $OVL_DIR/path
 else
   echo "Device tree overlay already loaded at $OVL_DIR"
