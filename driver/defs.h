@@ -1,8 +1,13 @@
 #pragma once
 
-#define RECACC_MEM_OFFSET_REGS 0x800000
 #define RECACC_MEM_OFFSET_SPAD 0x000000
-#define RECACC_MEM_MAP_SIZE    0x810000 // covers all mapped areas
+#define RECACC_MEM_OFFSET_REGS 0xFFF000
+#define RECACC_MEM_MAP_SIZE    0x1000000 // covers all mapped areas
+
+// fixed definitions of frequency for latency and throttle estimation
+// this could be moved to hardware once the hwinfo register knows the frequencies
+#define RECACC_ARRAY_CLK_MHZ 100
+#define RECACC_SPAD_CLK_MHZ  150
 
 #define RECACC_MAGIC "ACC"
 #define RECACC_MIN_HW_REV 6

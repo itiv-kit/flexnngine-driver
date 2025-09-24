@@ -16,8 +16,6 @@ using namespace std;
 using timer = chrono::steady_clock;
 using chrono::microseconds;
 
-const unsigned hw_freq_mhz = 100;
-
 // Create a test instance with default parameters for demonstration
 Conv2DTest::Conv2DTest(recacc_device* accelerator) : Conv2DTest(accelerator, Conv2D(32, 3, 4, 3)) {}
 
@@ -340,7 +338,7 @@ bool Conv2DTest::get_accelerator_results() {
     #endif
 
     auto cycles = get_cycle_count();
-    duration_acc = 1.0us * cycles / hw_freq_mhz;
+    duration_acc = 1.0us * cycles / RECACC_ARRAY_CLK_MHZ;
 
     return true;
 }
