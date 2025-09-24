@@ -125,8 +125,8 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
     cfg.base_addr_wght = base_wght;
     cfg.base_addr_psum = base_psum;
     cfg.base_addr_pad = base_padding;
-    cfg.stride_iact_w = ceil(1.0 * iact_w / hwinfo.spad_word_size);
-    cfg.stride_iact_hw = ceil(1.0 * iact_w * iact_h / hwinfo.spad_word_size);;
+    cfg.stride_iact_w = iact_w;
+    cfg.stride_iact_hw = iact_w * iact_h;
     cfg.stride_wght_krnl = bytes_per_kernel;
     // align offset between output channel kernel sets for easy copy
     cfg.stride_wght_och = make_multiple_of(hwinfo.spad_word_size,
@@ -235,6 +235,7 @@ void Conv2D::print_accelerator_parameters() {
     cout << "  c1               " << cfg.c1 << endl;
     cout << "  w1               " << cfg.w1 << endl;
     cout << "  h2               " << cfg.h2 << endl;
+    cout << "  m1               " << cfg.m1 << endl;
     cout << "  m0               " << cfg.m0 << endl;
     cout << "  m0_last_m1       " << cfg.m0_last_m1 << endl;
     cout << "  rows_last_h2     " << cfg.rows_last_h2 << endl;
