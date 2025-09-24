@@ -11,8 +11,8 @@ else
 fi
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
-BITSTREAM="${1:-$SCRIPT_DIR/default.bit}"
-OVERLAY="${2:-$SCRIPT_DIR/zcu104-uio-only.dtbo}"
+BITSTREAM="$(realpath "${1:-$SCRIPT_DIR/default.bit}")"
+OVERLAY="$(realpath "${2:-$SCRIPT_DIR/zcu104-uio-only.dtbo}")"
 OVL_DIR=/sys/kernel/config/device-tree/overlays/full
 
 if [ ! -e "$BITSTREAM" ] ; then
