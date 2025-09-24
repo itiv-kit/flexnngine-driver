@@ -178,7 +178,9 @@ void recacc_get_hwinfo(const recacc_device* dev, recacc_hwinfo* hwinfo) {
     hwinfo->line_length_iact = tmp & 0xffff;
     hwinfo->line_length_wght = tmp >> 16 & 0xffff;
 
-    hwinfo->line_length_psum = recacc_reg_read(dev, RECACC_REG_IDX_LINE_LENGTH_2);
+    tmp = recacc_reg_read(dev, RECACC_REG_IDX_LINE_LENGTH_2);
+    hwinfo->line_length_psum = tmp & 0xffff;
+    hwinfo->fifo_size_psum   = tmp >> 16 & 0xffff;
 
     tmp = recacc_reg_read(dev, RECACC_REG_IDX_DATA_WIDTH);
     hwinfo->data_width_bits_iact = tmp >> 0 & 0xff;

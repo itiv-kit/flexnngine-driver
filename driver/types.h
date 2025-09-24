@@ -46,6 +46,7 @@ typedef struct {
     uint32_t line_length_iact;
     uint32_t line_length_wght;
     uint32_t line_length_psum;
+    uint32_t fifo_size_psum;
     uint32_t spad_size;
     uint32_t spad_word_size;
     uint8_t  data_width_bits_iact;

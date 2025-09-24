@@ -14,6 +14,8 @@ void print_hwinfo(const recacc_hwinfo& hwinfo) {
               << " iact " << hwinfo.line_length_iact
               << " wght " << hwinfo.line_length_wght
               << " psum " << hwinfo.line_length_psum << std::endl;
+    std::cout << " fifos:"
+              << " psum " << hwinfo.fifo_size_psum << std::endl;
     std::cout << " scratchpad: " << hwinfo.spad_size
               << " bytes (word size " << hwinfo.spad_word_size << ")" << std::endl;
     std::cout << " trs " << hwinfo.trs_dataflow

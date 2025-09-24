@@ -71,6 +71,29 @@ void Conv2D::set_padding_mode(bool enable_same_size_padding) {
     padding = enable_same_size_padding;
 }
 
+void Conv2D::set_psum_throttle(int value) {
+    throttle = value;
+}
+
+// automatically throttle psum output if we expect the bandwidth to be insufficient, since there is no backpressure mechanism
+// calculate an estimate by comparing scratchpad and psum output bandwidth
+void Conv2D::guess_psum_throttle() {
+    ensure_hwinfo();
+    unsigned pixel_size = requantize ? 1 : bytes_per_psum;
+    unsigned output_phase_size = hwinfo.array_size_x * cfg.m0 * cfg.w1 * pixel_size;
+    unsigned psum_fifo_size = hwinfo.array_size_x * hwinfo.fifo_size_psum * hwinfo.spad_word_size;
+    float store_rate = 1.0f * hwinfo.spad_word_size * RECACC_ARRAY_CLK_MHZ / RECACC_SPAD_CLK_MHZ;
+    float output_rate = 1.0f * hwinfo.array_size_x * pixel_size;
+    if (store_rate >= output_rate || output_phase_size <= psum_fifo_size)
+        throttle = 0;
+    else {
+        float rate_factor = store_rate / (output_rate * (1 - psum_fifo_size / output_phase_size));
+        throttle = max(0.0, min(255.0, ceil(255.0 * (1 - 0.9 * rate_factor))));
+        if (throttle > 0)
+            cerr << "Warning: psum overflows expected, throttling output by " << throttle << " / 256" << endl;
+    }
+}
+
 std::tuple<unsigned, unsigned> Conv2D::get_image_size() const {
     return {iact_w, iact_h};
 }
@@ -175,8 +198,9 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
     cfg.c0w0 = cfg.c0 * wght_w;
     cfg.c0w0_last_c1 = cfg.c0_last_c1 * wght_w;
 
-    // TODO: calculate psum throttle when implementing TRS dataflow
-    cfg.psum_throttle = 0;
+    if (throttle < 0)
+        guess_psum_throttle();
+    cfg.psum_throttle = throttle;
 
     // C0W0 must not be too short to allow for disabling of PE array while reading data
     if (cfg.c0w0_last_c1 < 6) {
@@ -268,9 +292,11 @@ void Conv2D::allocate_spad_auto() {
         bytes_per_output_channel = (iact_w - wght_w + 1) * (iact_h - wght_h + 1);
 
     if (requantize)
-        bytes_per_output_channel *= pow(2, ceil(log2(hwinfo.data_width_bits_iact)) - 3);
+        bytes_per_psum = pow(2, ceil(log2(hwinfo.data_width_bits_iact)) - 3);
     else
-        bytes_per_output_channel *= pow(2, ceil(log2(hwinfo.data_width_bits_psum)) - 3);
+        bytes_per_psum = pow(2, ceil(log2(hwinfo.data_width_bits_psum)) - 3);
+
+    bytes_per_output_channel *= bytes_per_psum;
 
     spad_column_stride = hwinfo.spad_size / hwinfo.spad_word_size;
     channels_per_column = ceil(1.0 * input_channels / hwinfo.spad_word_size);
@@ -399,8 +425,8 @@ void Conv2D::copy_data_in(const void* iact_buf, size_t iact_bytes, const void* w
     input_t* spad = static_cast<input_t*>(recacc_get_buffer(dev));
 
     // copy iact data column-wise
-    // to speed up copying, channels are not mapped ch0 -> col0, ch1 -> col1,
-    // but vertically first (ch0+ch1 -> col1, ch2+ch3 -> col2) (for 16 channels)
+    // to speed up copying, channels are not mapped ch0+ch8 -> col0, ch1+ch9 -> col1,
+    // but vertically first (ch0+ch1 -> col0, ch2+ch3 -> col1) (for 16 channels)
     input_t* iact_addr = spad + base_iact;
     // cout << "copy iact from " << (void*)iact_buf << " to " << (void*)iact_addr << " " << iact_bytes << " bytes" << endl;
     _copy_in_columnwise(iact_addr, bytes_per_channel, static_cast<const input_t*>(iact_buf), iact_bytes, false);

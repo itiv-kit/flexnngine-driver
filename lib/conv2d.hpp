@@ -31,6 +31,7 @@ public:
     void set_recacc_device(const recacc_device* dev);
     void use_interrupts(bool enabled);
     void set_padding_mode(bool enable_same_size_padding);
+    void set_psum_throttle(int value);
 
     std::tuple<unsigned, unsigned> get_image_size() const;
     std::tuple<unsigned, unsigned> get_kernel_size() const;
@@ -55,6 +56,7 @@ public:
     bool wait_until_accelerator_done();
     void copy_data_out(void* psum_buf, size_t psum_bytes);
     bool validate_hw_state();
+    void guess_psum_throttle();
 
 protected:
     void ensure_hwinfo();
@@ -67,6 +69,7 @@ protected:
     unsigned input_channels = 4;
     unsigned output_channels = 3;
     unsigned dummy_channels = 3;
+    int throttle = -1; // negative throttle triggers autodetect
     unsigned cycles = 0;
     bool requantize = false;
     bool use_irq = false;
@@ -82,6 +85,7 @@ protected:
     unsigned alloc_size_psum = 0;
     unsigned spad_column_stride = 0;
     unsigned channels_per_column = 0;
+    unsigned bytes_per_psum = 0;
     unsigned bytes_per_channel = 0;
     unsigned bytes_per_kernel = 0;
     unsigned bytes_per_output_channel = 0;

@@ -231,7 +231,7 @@ void Conv2DTest::prepare_data(const string& files_path) {
         cout << "using "
             << num_iact_elements * sizeof(buf_iact[0]) << " bytes iact, "
             << num_wght_elements * sizeof(buf_wght[0]) << " bytes wght, "
-            << num_result_elements * sizeof(buf_result_acc_psums[0]) << " bytes psum" << endl;
+            << alloc_bytes_acc << " bytes psum" << endl;
         cout << "options: "
             << "padding " << (padding ? "on" : "off")
             << " activation " << (act_mode == act_relu ? "relu" : "off") << endl;
