@@ -182,7 +182,6 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
     }
     cfg.rows_last_h2 = 1; // not required for dataflow 0;
 
-    int size_rows = hwinfo.array_size_x + hwinfo.array_size_y - 1;
     // TODO: check case for M0 = 0. IMHO the else path is incorrect, as H2 is the number of iterations for mapping
     // each set of rows (accelerator.size_x rows) to the pe array.
     // h2 is how many iterations with one set of m0 kernels are required to process all image rows
@@ -210,7 +209,7 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
         cfg.c0w0_last_c1 = cfg.c0_last_c1 * wght_w;
     }
 
-    if (cfg.c0w0 * (cfg.c1 - 1) + cfg.c0w0_last_c1 != cfg.input_channels * wght_w) {
+    if (1U * cfg.c0w0 * (cfg.c1 - 1) + cfg.c0w0_last_c1 != cfg.input_channels * wght_w) {
         cout << "h2 = " << cfg.h2 << endl;
         cout << "rows_last_h2 = " << cfg.rows_last_h2 << endl;
         cout << "c1 = " << cfg.c1 << endl;
