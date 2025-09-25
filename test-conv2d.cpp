@@ -29,6 +29,7 @@ void dump_status_register(recacc_device* dev) {
 int main(int argc, char** argv) {
     bool dryrun = false;
     unsigned image_size = 32, kernel_size = 3, input_channels = 8, output_channels = 3;
+    unsigned throttle = -1;
     enum activation_mode act_mode = act_none;
     bool zero_bias = false;
     bool requantize = false;
@@ -43,7 +44,7 @@ int main(int argc, char** argv) {
     string files_path;
     string output_path;
 
-    while ((c = getopt(argc, argv, "hnd:i:o:s:c:k:u:Brpa:DIP")) != -1)
+    while ((c = getopt(argc, argv, "hnd:i:o:s:c:k:u:Brpa:DIPt:")) != -1)
         switch (c) {
             case 'h':
                 cout << "Usage:" << endl;
@@ -63,6 +64,7 @@ int main(int argc, char** argv) {
                 cout << "-a relu: enable activation (available: relu)" << endl;
                 cout << "-D enable buffer debug mode (fill unused with 0 / 0xaa pattern)" << endl;
                 cout << "-I/-P use interrupts or polling (default: polling)" << endl;
+                cout << "-t specify psum throttle value (default: guess)" << endl;
                 return 0;
                 break;
             case 'n':
@@ -103,6 +105,9 @@ int main(int argc, char** argv) {
                 break;
             case 'P':
                 interrupts = false;
+                break;
+            case 't':
+                throttle = atoi(optarg);
                 break;
             case 'a':
                 if (strcmp(optarg, "relu") == 0)
@@ -165,6 +170,7 @@ int main(int argc, char** argv) {
     c2d.set_bias(!zero_bias);
     c2d.set_debug_clean_buffers(debug_mode);
     c2d.use_interrupts(interrupts);
+    c2d.set_psum_throttle(throttle);
 
     cout << "preparing parameters and test data" << endl;
     #ifdef __linux__
