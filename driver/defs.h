@@ -1,7 +1,7 @@
 #pragma once
 
-#define RECACC_MEM_OFFSET_SPAD 0x000000
-#define RECACC_MEM_OFFSET_REGS 0xFFF000
+#define RECACC_MEM_OFFSET_SPAD 0x100000
+#define RECACC_MEM_OFFSET_REGS 0x000000
 #define RECACC_MEM_MAP_SIZE    0x1000000 // covers all mapped areas
 
 // fixed definitions of frequency for latency and throttle estimation
