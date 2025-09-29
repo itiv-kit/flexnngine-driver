@@ -12,7 +12,7 @@
 int main(int argc, char** argv) {
     char device_name[256] = DEFAULT_DEVICE;
     if (argc > 1) {
-        strncpy(device_name, *++argv, 255);
+        strcpy(device_name, *++argv);
         device_name[255] = 0;
     }
 

@@ -12,6 +12,10 @@
 #include <unistd.h>
 #include <time.h>
 
+#ifdef __riscv
+#include "cva6.h"
+#endif
+
 bool recacc_verify(recacc_device* dev, bool print_info) {
     uint32_t magic_reg = recacc_reg_read(dev, RECACC_REG_IDX_MAGIC);
     char magic_str[4] = {
@@ -244,7 +248,7 @@ static inline bool _recacc_wait_linux(const recacc_device* dev, bool poll) {
     }
 }
 #else
-static inline bool _recacc_wait_baremetal(const recacc_device* dev, bool poll) {
+static inline bool _recacc_wait_baremetal(const recacc_device* dev, __attribute__((unused)) bool poll) {
     // TODO: implement with interrupts instead of polling
     int timeout = 1000;
     while (timeout && !recacc_poll(dev)) {
