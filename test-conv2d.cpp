@@ -149,7 +149,7 @@ int main(int argc, char** argv) {
         if (ret)
             return ret;
         #else
-        ret = recacc_open(&dev, (void*) 0x50000000);
+        ret = recacc_open(&dev, (void*) 0x40700000);
         #endif
 
         if (!recacc_verify(&dev, true)) {
