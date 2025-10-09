@@ -12,6 +12,16 @@ extern "C" {
 
 #define DEFAULT_DEVICE "/dev/uio4"
 
+static constexpr unsigned default_image_size = 32, default_kernel_size = 3, default_input_channels = 8, default_output_channels = 3;
+#ifdef PREALLOCATE
+// constexpr unsigned psum_word_size = requantize ? 1 : 4;
+input_t g_buf_iact[default_image_size * default_image_size * default_input_channels];
+input_t g_buf_wght[default_kernel_size * default_kernel_size * default_input_channels * default_output_channels];
+psum_t g_buf_result_acc_psums[default_image_size * default_image_size * default_output_channels];
+psum_t g_buf_result_cpu_psums[default_image_size * default_image_size * default_output_channels];
+input_t* g_buf_result_acc = reinterpret_cast<input_t*>(g_buf_result_acc_psums);
+#endif
+
 using namespace std;
 
 void dump_status_register(recacc_device* dev) {
@@ -28,7 +38,7 @@ void dump_status_register(recacc_device* dev) {
 
 int main(int argc, char** argv) {
     bool dryrun = false;
-    unsigned image_size = 32, kernel_size = 3, input_channels = 8, output_channels = 3;
+    unsigned image_size = default_image_size, kernel_size = default_kernel_size, input_channels = default_input_channels, output_channels = default_output_channels;
     unsigned throttle = -1;
     enum activation_mode act_mode = act_none;
     bool zero_bias = false;

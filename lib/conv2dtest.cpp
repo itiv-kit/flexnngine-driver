@@ -16,6 +16,15 @@ using namespace std;
 using timer = chrono::steady_clock;
 using chrono::microseconds;
 
+#ifdef PREALLOCATE
+// in preallocate mode, assume these buffers are linked in from the outside
+extern input_t* g_buf_iact;
+extern input_t* g_buf_wght;
+extern input_t* g_buf_result_acc;
+extern psum_t* g_buf_result_acc_psums;
+extern psum_t* g_buf_result_cpu_psums;
+#endif
+
 // Create a test instance with default parameters for demonstration
 Conv2DTest::Conv2DTest(recacc_device* accelerator) : Conv2DTest(accelerator, Conv2D(32, 3, 4, 3)) {}
 
@@ -117,7 +126,11 @@ void Conv2DTest::prepare_data(const string& files_path) {
 
     num_iact_elements = iact_w * iact_h * input_channels;
     num_iact_elements_aligned = make_multiple_of(8, num_iact_elements);
-    buf_iact = new input_t[num_iact_elements_aligned];
+    #ifdef PREALLOCATE
+        buf_iact = g_buf_iact;
+    #else
+        buf_iact = new input_t[num_iact_elements_aligned];
+    #endif
     if (data_from_files) {
         size_t n = read_text_data<input_t>(buf_iact, num_iact_elements, files_path + "/_image.txt");
         if (num_iact_elements != n) {
@@ -130,7 +143,11 @@ void Conv2DTest::prepare_data(const string& files_path) {
 
     num_wght_elements = wght_w * wght_h * input_channels * output_channels;
     num_wght_elements_aligned = make_multiple_of(8, num_wght_elements);
-    buf_wght = new input_t[num_wght_elements_aligned];
+    #ifdef PREALLOCATE
+        buf_wght = g_buf_wght;
+    #else
+        buf_wght = new input_t[num_wght_elements_aligned];
+    #endif
     if (data_from_files) {
         size_t n = read_text_data<input_t>(buf_wght, num_wght_elements, files_path + "/_kernel_stack.txt");
         if (num_wght_elements != n) {
@@ -203,18 +220,31 @@ void Conv2DTest::prepare_data(const string& files_path) {
     // in both cases, setup helper pointers to access raw psums or requantized psums
     if (requantize) {
         alloc_bytes_acc = num_result_elements_aligned;
-        buf_result_acc = new input_t[num_result_elements_aligned];
+        #ifdef PREALLOCATE
+            buf_result_acc = g_buf_result_acc;
+        #else
+            buf_result_acc = new input_t[num_result_elements_aligned];
+        #endif
         buf_result_acc_psums = reinterpret_cast<psum_t*>(buf_result_acc);
     } else {
         alloc_bytes_acc = num_result_elements_aligned * sizeof(psum_t);
-        buf_result_acc_psums = new psum_t[num_result_elements_aligned];
+        #ifdef PREALLOCATE
+            buf_result_acc_psums = g_buf_result_acc_psums;
+        #else
+            buf_result_acc_psums = new psum_t[num_result_elements_aligned];
+        #endif
         buf_result_acc = reinterpret_cast<input_t*>(buf_result_acc_psums);
     }
 
     // cpu always needs a full-psum buffer (first conv2d, then requantize if enabled)
-    buf_result_cpu_psums = new psum_t[num_result_elements];
+    #ifdef PREALLOCATE
+        buf_wght = g_buf_wght;
+    #else
+        buf_result_cpu_psums = new psum_t[num_result_elements];
+    #endif
     buf_result_cpu = reinterpret_cast<input_t*>(buf_result_cpu_psums);
 
+    #ifndef PREALLOCATE
     if (data_from_files) {
         buf_result_files = new input_t[num_result_elements * 2];
         buf_result_files_psums = reinterpret_cast<psum_t*>(buf_result_files);
@@ -226,6 +256,7 @@ void Conv2DTest::prepare_data(const string& files_path) {
         if (num_result_elements != n)
             cout << "warning: only " << n << " result words read, " << num_result_elements << " expected." << endl;
     }
+    #endif
 
     if (verbose > Verbosity::Errors) {
         cout << "using "
