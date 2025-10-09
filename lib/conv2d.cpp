@@ -135,7 +135,7 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
         uint32_t align_to = hwinfo.spad_word_size;
         dummy_channels = make_multiple_of(align_to, input_channels) - input_channels;
         if (dummy_channels)
-            cerr << "WARNING: adding " << dummy_channels << " dummy channels to align to scratchpad layout" << endl;
+            cerr << "WARNING: adding " << dummy_channels << " dummy input channels to align to scratchpad layout" << endl;
     } else {
         dummy_channels = 0;
     }
@@ -241,12 +241,6 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
         cout << "c0w0_last_c1 = " << cfg.c0w0_last_c1 << endl;
         throw runtime_error("BUG: mismatch of calculated accelerator parameters");
     }
-
-    if (cfg.m0 != output_channels) {
-        cout << "WARNING: " << output_channels << " output channels requested, but have to map " << cfg.m0 << " output channels." << endl;
-        // TODO: allow more than m0 output channels -> implement m1 tiling, maybe in software?
-        output_channels = cfg.output_channels = cfg.m0;
-    }
 }
 
 void Conv2D::print_accelerator_parameters() {
@@ -299,6 +293,7 @@ void Conv2D::allocate_spad_auto() {
 
     spad_column_stride = hwinfo.spad_size / hwinfo.spad_word_size;
     channels_per_column = ceil(1.0 * input_channels / hwinfo.spad_word_size);
+    unsigned output_channels_per_column = ceil(1.0 * output_channels / hwinfo.spad_word_size);
 
     unsigned size_iact = channels_per_column * bytes_per_channel;
     unsigned size_kernel_set = channels_per_column * bytes_per_kernel;
@@ -309,11 +304,10 @@ void Conv2D::allocate_spad_auto() {
     base_iact = 0;
 
     // place wght directly after iact, aligned to 32 bytes
-    // should actually use cfg.m0 here, but allocate_spad_auto is usually called before compute_accelerator_parameters. change when supporting more than m0 ochs.
     base_wght = make_multiple_of(32, size_iact);
 
     base_padding = 0;
-    // if padding is enabled, a row of zeros if required:
+    // if padding is enabled, a row of zeros is required:
     // 1) try to fit padding bytes between iact and wght
     // 2) try to fit it between kernel sets for different output channels (succeeds in most cases)
     // 3) try to fit after kernels and before psum
@@ -349,7 +343,7 @@ void Conv2D::allocate_spad_auto() {
     if (base_wght >= spad_column_stride || alloc_size_wght < bytes_per_kernel * input_channels * output_channels)
         throw runtime_error("spad allocation size too small for wght data!");
 
-    if (base_psum >= spad_column_stride || bytes_per_output_channel >= spad_column_stride - base_psum)
+    if (base_psum >= spad_column_stride || output_channels_per_column * bytes_per_output_channel >= spad_column_stride - base_psum)
         throw runtime_error("spad allocation size too small for psum data!");
 }
 
@@ -432,7 +426,7 @@ void Conv2D::copy_data_in(const void* iact_buf, size_t iact_bytes, const void* w
 
     input_t* wght_addr = spad + base_wght;
     const input_t* wght_buf_i8 = static_cast<const input_t*>(wght_buf);
-    for (unsigned och = 0; och < cfg.m0; och++) {
+    for (unsigned och = 0; och < output_channels; och++) {
         // cout << "copy wght for och " << och << " from " << (void*)wght_buf << " to " << (void*)wght_addr << " " << wght_bytes << " bytes" << endl;
         wght_bytes = _copy_in_columnwise(wght_addr, bytes_per_kernel, wght_buf_i8, wght_bytes, true);
         wght_buf_i8 += input_channels * bytes_per_kernel;
