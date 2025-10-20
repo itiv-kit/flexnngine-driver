@@ -188,7 +188,7 @@ void Conv2D::compute_accelerator_parameters(bool fixup_channel_alignment) {
     if (cfg.m0 == 0)
         cfg.h2 = ceil(1.0 * (iact_h - wght_h + 1) / hwinfo.array_size_x);
     else
-        cfg.h2 = ceil(1.0 * iact_h / hwinfo.array_size_x);
+        cfg.h2 = ceil((1.0 * iact_h + cfg.pad_x) / hwinfo.array_size_x);
 
     cfg.c0 = min(cfg.input_channels, static_cast<uint16_t>(floor(1.0 * line_length_wght_usable / wght_w / hwinfo.spad_word_size) * hwinfo.spad_word_size));
     cfg.c1 = ceil(1.0 * cfg.input_channels / cfg.c0);
