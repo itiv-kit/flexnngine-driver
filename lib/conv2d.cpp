@@ -1,5 +1,6 @@
 #include "conv2d.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <iostream>
 #include <cassert>
@@ -417,20 +418,24 @@ void Conv2D::copy_data_in(const void* iact_buf, size_t iact_bytes, const void* w
 
     input_t* spad = static_cast<input_t*>(recacc_get_buffer(dev));
 
-    // copy iact data column-wise
-    // to speed up copying, channels are not mapped ch0+ch8 -> col0, ch1+ch9 -> col1,
-    // but vertically first (ch0+ch1 -> col0, ch2+ch3 -> col1) (for 16 channels)
-    input_t* iact_addr = spad + base_iact;
-    // cout << "copy iact from " << (void*)iact_buf << " to " << (void*)iact_addr << " " << iact_bytes << " bytes" << endl;
-    _copy_in_columnwise(iact_addr, bytes_per_channel, static_cast<const input_t*>(iact_buf), iact_bytes, false);
+    if (iact_buf != nullptr) {
+        // copy iact data column-wise
+        // to speed up copying, channels are not mapped ch0+ch8 -> col0, ch1+ch9 -> col1,
+        // but vertically first (ch0+ch1 -> col0, ch2+ch3 -> col1) (for 16 channels)
+        input_t* iact_addr = spad + base_iact;
+        // cout << "copy iact from " << (void*)iact_buf << " to " << (void*)iact_addr << " " << iact_bytes << " bytes" << endl;
+        _copy_in_columnwise(iact_addr, bytes_per_channel, static_cast<const input_t*>(iact_buf), iact_bytes, false);
+    }
 
-    input_t* wght_addr = spad + base_wght;
-    const input_t* wght_buf_i8 = static_cast<const input_t*>(wght_buf);
-    for (unsigned och = 0; och < output_channels; och++) {
-        // cout << "copy wght for och " << och << " from " << (void*)wght_buf << " to " << (void*)wght_addr << " " << wght_bytes << " bytes" << endl;
-        wght_bytes = _copy_in_columnwise(wght_addr, bytes_per_kernel, wght_buf_i8, wght_bytes, true);
-        wght_buf_i8 += input_channels * bytes_per_kernel;
-        wght_addr += cfg.stride_wght_och;
+    if (wght_buf != nullptr) {
+        input_t* wght_addr = spad + base_wght;
+        const input_t* wght_buf_i8 = static_cast<const input_t*>(wght_buf);
+        for (unsigned och = 0; och < output_channels; och++) {
+            // cout << "copy wght for och " << och << " from " << (void*)wght_buf << " to " << (void*)wght_addr << " " << wght_bytes << " bytes" << endl;
+            wght_bytes = _copy_in_columnwise(wght_addr, bytes_per_kernel, wght_buf_i8, wght_bytes, true);
+            wght_buf_i8 += input_channels * bytes_per_kernel;
+            wght_addr += cfg.stride_wght_och;
+        }
     }
 
     if (padding) {
