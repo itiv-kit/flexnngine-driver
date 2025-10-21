@@ -1,10 +1,10 @@
 #include <cstring>
-#include <iomanip>
 #include <iostream>
 #include <string>
 #include <unistd.h>
 
 #include "lib/conv2dtest.hpp"
+#include "lib/utils.hpp"
 
 extern "C" {
     #include <driver.h>
@@ -13,18 +13,6 @@ extern "C" {
 #define DEFAULT_DEVICE "/dev/uio4"
 
 using namespace std;
-
-void dump_status_register(recacc_device* dev) {
-    union recacc_status_reg status;
-    status.raw = recacc_reg_read(dev, RECACC_REG_IDX_STATUS);
-    cout << "Status register 0x" << hex << setfill('0') << setw(8) << status.raw << dec << ":" << endl;
-    cout << "  ready     " << status.decoded.ready << endl;
-    cout << "  done      " << status.decoded.done << endl;
-    cout << "  irq       " << status.decoded.irq << endl;
-    cout << "  iact_done " << status.decoded.ctrl_iact_done << endl;
-    cout << "  wght_done " << status.decoded.ctrl_wght_done << endl;
-    cout << "  preload   " << status.decoded.preload_done << endl;
-}
 
 int main(int argc, char** argv) {
     bool dryrun = false;

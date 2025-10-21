@@ -3,24 +3,24 @@
 using namespace std;
 
 void print_hwinfo(const recacc_hwinfo& hwinfo) {
-    std::cout << "Accelerator configuration:" << std::endl;
-    std::cout << " array size: " << hwinfo.array_size_y
-              << "x" << hwinfo.array_size_x << std::endl;
-    std::cout << " data width:"
-              << " iact " << static_cast<int>(hwinfo.data_width_bits_iact)
-              << " wght " << static_cast<int>(hwinfo.data_width_bits_wght)
-              << " psum " << static_cast<int>(hwinfo.data_width_bits_psum) << std::endl;
-    std::cout << " pe buffers:"
-              << " iact " << hwinfo.line_length_iact
-              << " wght " << hwinfo.line_length_wght
-              << " psum " << hwinfo.line_length_psum << std::endl;
-    std::cout << " fifos:"
-              << " psum " << hwinfo.fifo_size_psum << std::endl;
-    std::cout << " scratchpad: " << hwinfo.spad_size
-              << " bytes (word size " << hwinfo.spad_word_size << ")" << std::endl;
-    std::cout << " trs " << hwinfo.trs_dataflow
-              << " postproc " << hwinfo.bias_requant_available
-              << " max och " << static_cast<int>(hwinfo.max_output_channels) << std::endl;
+    cout << "Accelerator configuration:" << endl;
+    cout << " array size: " << hwinfo.array_size_y
+         << "x" << hwinfo.array_size_x << endl;
+    cout << " data width:"
+         << " iact " << static_cast<int>(hwinfo.data_width_bits_iact)
+         << " wght " << static_cast<int>(hwinfo.data_width_bits_wght)
+         << " psum " << static_cast<int>(hwinfo.data_width_bits_psum) << endl;
+    cout << " pe buffers:"
+         << " iact " << hwinfo.line_length_iact
+         << " wght " << hwinfo.line_length_wght
+         << " psum " << hwinfo.line_length_psum << endl;
+    cout << " fifos:"
+         << " psum " << hwinfo.fifo_size_psum << endl;
+    cout << " scratchpad: " << hwinfo.spad_size
+         << " bytes (word size " << hwinfo.spad_word_size << ")" << endl;
+    cout << " trs " << hwinfo.trs_dataflow
+         << " postproc " << hwinfo.bias_requant_available
+         << " max och " << static_cast<int>(hwinfo.max_output_channels) << endl;
 }
 
 void memcpy_align_src(void* dst, void* src, size_t size) {
@@ -35,8 +35,8 @@ void memcpy_align_src(void* dst, void* src, size_t size) {
     volatile uint8_t* src_u8 = reinterpret_cast<volatile uint8_t*>(src);
     uint8_t* dst_u8 = reinterpret_cast<uint8_t*>(dst);
 
-    // std::cout << "memcpy_align_src " << unaligned_bytes_start << "+" << aligned_bytes << "+" << unaligned_bytes_end
-    //           << "=" << size << " bytes from " << src << " to " << dst << std::endl;
+    // cout << "memcpy_align_src " << unaligned_bytes_start << "+" << aligned_bytes << "+" << unaligned_bytes_end
+    //      << "=" << size << " bytes from " << src << " to " << dst << endl;
 
     for (size_t n = 0; n < unaligned_bytes_start; n++)
         *dst_u8++ = *src_u8++;
@@ -48,4 +48,16 @@ void memcpy_align_src(void* dst, void* src, size_t size) {
 
     for (size_t n = 0; n < unaligned_bytes_end; n++)
         *dst_u8++ = *src_u8++;
+}
+
+void dump_status_register(recacc_device* dev) {
+    union recacc_status_reg status;
+    status = recacc_get_status(dev);
+    cout << "Status register 0x" << hex << setfill('0') << setw(8) << status.raw << dec << ":" << endl;
+    cout << "  ready     " << status.decoded.ready << endl;
+    cout << "  done      " << status.decoded.done << endl;
+    cout << "  irq       " << status.decoded.irq << endl;
+    cout << "  iact_done " << status.decoded.ctrl_iact_done << endl;
+    cout << "  wght_done " << status.decoded.ctrl_wght_done << endl;
+    cout << "  preload   " << status.decoded.preload_done << endl;
 }
