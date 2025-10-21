@@ -1,5 +1,9 @@
 #include "utils.hpp"
 
+extern "C" {
+    #include <generic.h>
+}
+
 using namespace std;
 
 void print_hwinfo(const recacc_hwinfo& hwinfo) {
@@ -52,7 +56,7 @@ void memcpy_align_src(void* dst, void* src, size_t size) {
 
 void dump_status_register(recacc_device* dev) {
     union recacc_status_reg status;
-    status = recacc_get_status(dev);
+    status.decoded = recacc_get_status(dev);
     cout << "Status register 0x" << hex << setfill('0') << setw(8) << status.raw << dec << ":" << endl;
     cout << "  ready     " << status.decoded.ready << endl;
     cout << "  done      " << status.decoded.done << endl;
