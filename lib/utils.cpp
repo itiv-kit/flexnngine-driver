@@ -54,7 +54,7 @@ void memcpy_align_src(void* dst, void* src, size_t size) {
         *dst_u8++ = *src_u8++;
 }
 
-void dump_status_register(recacc_device* dev) {
+void dump_status_register(const recacc_device* dev) {
     union recacc_status_reg status;
     status.decoded = recacc_get_status(dev);
     cout << "Status register 0x" << hex << setfill('0') << setw(8) << status.raw << dec << ":" << endl;

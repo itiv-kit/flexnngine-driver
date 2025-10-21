@@ -92,4 +92,4 @@ static auto make_multiple_of(auto div, auto value) {
 
 void print_hwinfo(const recacc_hwinfo& hwinfo);
 void memcpy_align_src(void* dst, void* src, size_t size);
-void dump_status_register(recacc_device* dev);
+void dump_status_register(const recacc_device* dev);
