@@ -213,13 +213,13 @@ bool recacc_poll(const recacc_device* dev) {
 #include <sys/select.h>
 static inline bool _recacc_wait_linux(const recacc_device* dev, bool poll) {
     if (poll) {
-        time_t start = time(NULL);
-        while (!recacc_poll(dev)) {
-            usleep(100000);
-            if (time(NULL) > start)
-                return false;
+        unsigned max_poll = POLL_TIMEOUT_US / POLL_INTERVAL_US;
+        while (max_poll) {
+            if (recacc_poll(dev))
+                return true;
+            usleep(POLL_INTERVAL_US);
         }
-        return true;
+        return false;
     } else {
         struct timeval timeout;
         fd_set readfds;
