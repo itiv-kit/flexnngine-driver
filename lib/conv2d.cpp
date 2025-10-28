@@ -584,10 +584,18 @@ void Conv2D::copy_data_out(void* psum_buf, size_t psum_bytes) {
         // TODO: improve copy-out. we do manual 32bit reads here to allow 4-byte aligned output channel sizes
         // i.e. reading 900 bytes for 30x30 output image would fail with memcpy for 2nd channel,
         // cause the target address + 900 is not aligned to 8-byte anymore (and on aarch64 64bit copy is default)
-        uint32_t* psum_addr32 = reinterpret_cast<uint32_t*>(psum_addr);
-        uint32_t* dst32 = reinterpret_cast<uint32_t*>(dst);
-        for (size_t n = 0; n < bytes_per_output_channel / 4; n++)
-            dst32[n] = psum_addr32[n];
+        // we can at least choose whether we need a single-byte copy. std::copy does still lead to bus errors in some cases.
+        if (reinterpret_cast<uint64_t>(psum_addr) % 4 || reinterpret_cast<uint64_t>(dst) % 4) {
+            for (size_t n = 0; n < bytes_per_output_channel; n++)
+                dst[n] = psum_addr[n];
+        } else /* if (reinterpret_cast<uint64_t>(psum_addr) % 8 || reinterpret_cast<uint64_t>(dst) % 8) */ {
+            uint32_t* psum_addr32 = reinterpret_cast<uint32_t*>(psum_addr);
+            uint32_t* dst32 = reinterpret_cast<uint32_t*>(dst);
+            for (size_t n = 0; n < (bytes_per_output_channel + 3) / 4; n++)
+                dst32[n] = psum_addr32[n];
+        // } else {
+        //     copy(psum_addr, psum_addr + bytes_per_output_channel, dst);
+        }
 
         // this special memcpy makes sure to align the call to actual memcpy to work around device memory alignment issues
         // however, it turns out to be even slower than the 32bit for-loop copy
