@@ -378,9 +378,15 @@ size_t Conv2DTest::_verify_buffers(input_t* input, input_t* reference, const str
             display_offset -= 32;
 
         cout << name_input << " result (128 words at " << display_offset << "):" << endl;
-        print_buffer<psum_t>(input, 128, display_offset, 8, incorrect_offset);
+        if (requantize)
+            print_buffer<input_t>(input, 128, display_offset, 8, incorrect_offset);
+        else
+            print_buffer<psum_t>(input, 128, display_offset, 8, incorrect_offset);
         cout << name_reference << " result:" << endl;
-        print_buffer<psum_t>(reference, 128, display_offset, 8, incorrect_offset);
+        if (requantize)
+            print_buffer<input_t>(reference, 128, display_offset, 8, incorrect_offset);
+        else
+            print_buffer<psum_t>(reference, 128, display_offset, 8, incorrect_offset);
     }
 
     return incorrect;
