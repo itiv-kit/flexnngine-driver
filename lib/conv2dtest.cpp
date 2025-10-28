@@ -202,7 +202,7 @@ void Conv2DTest::prepare_data(const string& files_path) {
 
     // in both cases, setup helper pointers to access raw psums or requantized psums
     if (requantize) {
-        alloc_bytes_acc = num_result_elements_aligned;
+        alloc_bytes_acc = num_result_elements_aligned * sizeof(input_t);
         buf_result_acc = new input_t[num_result_elements_aligned];
         buf_result_acc_psums = reinterpret_cast<psum_t*>(buf_result_acc);
     } else {

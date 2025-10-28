@@ -304,11 +304,11 @@ void Conv2D::allocate_spad_auto() {
     // place iact at scratchpad start
     base_iact = 0;
 
-    // place wght directly after iact, aligned to 32 bytes
-    base_wght = make_multiple_of(32, size_iact);
+    // place wght directly after iact, aligned to 8 bytes
+    base_wght = make_multiple_of(8, size_iact);
 
     base_padding = 0;
-    // if padding is enabled, a row of zeros is required:
+    // if padding is enabled, a row of zeros is required (1 pixel per column):
     // 1) try to fit padding bytes between iact and wght
     // 2) try to fit it between kernel sets for different output channels (succeeds in most cases)
     // 3) try to fit after kernels and before psum
@@ -320,15 +320,15 @@ void Conv2D::allocate_spad_auto() {
             base_padding = base_wght + size_kernel_set;
     }
 
-    // place psum directly after wght, aligned to 32 bytes
-    base_psum = make_multiple_of(32, base_wght + size_wght);
+    // place psum directly after wght, aligned to 8 bytes
+    base_psum = make_multiple_of(8, base_wght + size_wght);
 
-    if (padding) {
-        if (base_padding == 0 && base_wght + size_wght < base_psum)
+    if (padding && base_padding == 0) {
+        if (base_wght + size_wght < base_psum)
             base_padding = base_wght + size_wght;
         else {
             base_padding = base_psum;
-            base_psum += 32;
+            base_psum += 8; // 1 byte would be sufficient but unaligned
         }
     }
 
@@ -561,8 +561,6 @@ bool Conv2D::wait_until_accelerator_done() {
 }
 
 void Conv2D::copy_data_out(void* psum_buf, size_t psum_bytes) {
-    // TODO: support raw mode without postprocessing -> 16bit psums
-
     // we actually don't care if the buffer is too small, the user does not get all results
     if (psum_bytes > alloc_size_psum)
         throw runtime_error("copy_data_out requesting more data than allocated");
@@ -572,12 +570,16 @@ void Conv2D::copy_data_out(void* psum_buf, size_t psum_bytes) {
     if (copy_och_count > output_channels)
         copy_och_count = output_channels;
 
+    // cout << "copy_data_out psum_bytes " << psum_bytes << " copy_och_count " << copy_och_count << " bytes_per_output_channel " << bytes_per_output_channel << endl;
+
     int8_t* dst = static_cast<int8_t*>(psum_buf);
     int8_t* psum_addr = nullptr;
     for (unsigned och = 0; och < copy_och_count; och++) {
         psum_addr = static_cast<int8_t*>(recacc_get_buffer(dev)) + base_psum
-                    + bytes_per_output_channel * (och / hwinfo.spad_word_size)
+                    + cfg.stride_psum_och * (och / hwinfo.spad_word_size) * hwinfo.spad_word_size
                     + spad_column_stride * (och % hwinfo.spad_word_size);
+
+        // cout << "copy_data_out och " << och << " psum_addr " << (void*)(psum_addr) << " dst " << (void*)(dst) << endl;
 
         // TODO: improve copy-out. we do manual 32bit reads here to allow 4-byte aligned output channel sizes
         // i.e. reading 900 bytes for 30x30 output image would fail with memcpy for 2nd channel,
